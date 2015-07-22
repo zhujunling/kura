@@ -62,6 +62,7 @@ import org.eclipse.kura.net.wifi.WifiInterfaceAddressConfig;
 import org.eclipse.kura.net.wifi.WifiMode;
 import org.eclipse.kura.net.wifi.WifiRadioMode;
 import org.eclipse.kura.net.wifi.WifiSecurity;
+import org.eclipse.kura.system.SystemService;
 import org.eclipse.kura.usb.UsbDevice;
 import org.eclipse.kura.web.server.util.KuraExceptionHandler;
 import org.eclipse.kura.web.server.util.ServiceLocator;
@@ -441,12 +442,16 @@ public class GwtNetworkServiceImpl extends OsgiRemoteServiceServlet implements G
 										((GwtWifiNetInterfaceConfig)gwtNetConfig).setWirelessMode(GwtWifiWirelessMode.netWifiWirelessModeStation.name());
 										if (wifiClientMonitorService != null) {
 											if (wifiConfig.getMode().equals(WifiMode.INFRA)) {
-												try {
-													int rssi = wifiClientMonitorService.getSignalLevel(netIfConfig.getName(), wifiConfig.getSSID());
-													s_logger.debug("Setting Received Signal Strength to {}", rssi);
-													gwtNetConfig.setHwRssi(Integer.toString(rssi));
-												} catch (KuraException e) {
-													e.printStackTrace();
+												if (gwtNetConfig.getStatus().equals(GwtNetIfStatus.netIPv4StatusDisabled.name())) {
+													gwtNetConfig.setHwRssi("N/A");
+												} else {
+													try {
+														int rssi = wifiClientMonitorService.getSignalLevel(netIfConfig.getName(), wifiConfig.getSSID());
+														s_logger.debug("Setting Received Signal Strength to {}", rssi);
+														gwtNetConfig.setHwRssi(Integer.toString(rssi));
+													} catch (KuraException e) {
+														e.printStackTrace();
+													}
 												}
 											}
 										}
@@ -500,6 +505,13 @@ public class GwtNetworkServiceImpl extends OsgiRemoteServiceServlet implements G
 						                    		gwtModemConfig.setHwRssi(Integer.toString(rssi));
 					                    		} catch (KuraException e) {
 					                    			s_logger.warn("Failed to get Received Signal Strength from modem", e);
+					                    		}
+					                    		
+					                    		try {
+						                    		String sModel = cellModemService.getModel();
+						                    		((GwtModemInterfaceConfig)gwtNetConfig).setModel(sModel);
+					                    		} catch (KuraException e) {
+					                    			s_logger.warn("Failed to get model information from modem", e);
 					                    		}
 					                    		
 					                    		try {
@@ -874,6 +886,7 @@ public class GwtNetworkServiceImpl extends OsgiRemoteServiceServlet implements G
 	public ListLoadResult<GwtWifiHotspotEntry> findWifiHotspots(String interfaceName) throws GwtKuraException {
 		
 		NetworkAdminService nas = ServiceLocator.getInstance().getService(NetworkAdminService.class);
+		SystemService systemService = ServiceLocator.getInstance().getService(SystemService.class);
 		List<GwtWifiHotspotEntry> gwtWifiHotspotsEntries = new ArrayList<GwtWifiHotspotEntry>();
 
 		try {
@@ -883,26 +896,28 @@ public class GwtNetworkServiceImpl extends OsgiRemoteServiceServlet implements G
 				Iterator<WifiHotspotInfo> it = wifiHotspotInfoCollection.iterator();
 				while (it.hasNext()) {
 					WifiHotspotInfo wifiHotspotInfo = it.next();
-					GwtWifiHotspotEntry gwtWifiHotspotEntry = new GwtWifiHotspotEntry();
-					gwtWifiHotspotEntry.setMacAddress(wifiHotspotInfo.getMacAddress());
-					gwtWifiHotspotEntry.setSSID(wifiHotspotInfo.getSsid());
-					gwtWifiHotspotEntry.setsignalStrength(wifiHotspotInfo.getSignalLevel());
-					gwtWifiHotspotEntry.setChannel(wifiHotspotInfo.getChannel());
-					gwtWifiHotspotEntry.setFrequency(wifiHotspotInfo.getFrequency());
-					
-					if ((wifiHotspotInfo.getSecurity() == WifiSecurity.NONE)
-							|| (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_NONE)) {
-						gwtWifiHotspotEntry.setSecurity("None");
-					} else if (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_WEP) {
-						gwtWifiHotspotEntry.setSecurity("WEP");
-					} else if (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_WPA) {
-						gwtWifiHotspotEntry.setSecurity("WPA");
-					} else if (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_WPA2) {
-						gwtWifiHotspotEntry.setSecurity("WPA2");
-					} else if (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_WPA_WPA2) {
-						gwtWifiHotspotEntry.setSecurity("WPA/WPA2");
+					if (wifiHotspotInfo.getChannel() <= systemService.getKuraWifiTopChannel()) {
+						GwtWifiHotspotEntry gwtWifiHotspotEntry = new GwtWifiHotspotEntry();
+						gwtWifiHotspotEntry.setMacAddress(wifiHotspotInfo.getMacAddress());
+						gwtWifiHotspotEntry.setSSID(wifiHotspotInfo.getSsid());
+						gwtWifiHotspotEntry.setsignalStrength(wifiHotspotInfo.getSignalLevel());
+						gwtWifiHotspotEntry.setChannel(wifiHotspotInfo.getChannel());
+						gwtWifiHotspotEntry.setFrequency(wifiHotspotInfo.getFrequency());
+						
+						if ((wifiHotspotInfo.getSecurity() == WifiSecurity.NONE)
+								|| (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_NONE)) {
+							gwtWifiHotspotEntry.setSecurity("None");
+						} else if (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_WEP) {
+							gwtWifiHotspotEntry.setSecurity("WEP");
+						} else if (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_WPA) {
+							gwtWifiHotspotEntry.setSecurity("WPA");
+						} else if (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_WPA2) {
+							gwtWifiHotspotEntry.setSecurity("WPA2");
+						} else if (wifiHotspotInfo.getSecurity() == WifiSecurity.SECURITY_WPA_WPA2) {
+							gwtWifiHotspotEntry.setSecurity("WPA/WPA2");
+						}
+						gwtWifiHotspotsEntries.add(gwtWifiHotspotEntry);
 					}
-					gwtWifiHotspotsEntries.add(gwtWifiHotspotEntry);
 				}
 			}
 		} catch (Throwable t) {
@@ -1196,6 +1211,24 @@ public class GwtNetworkServiceImpl extends OsgiRemoteServiceServlet implements G
 		} catch (KuraException e) {
 			e.printStackTrace();
 			throw new GwtKuraException(GwtKuraErrorCode.INTERNAL_ERROR, e);
+		}
+	}
+	
+	public void rollbackDefaultConfiguration() {
+		s_logger.debug("Rolling back to default configuration ...");
+		try {
+			NetworkAdminService nas = ServiceLocator.getInstance().getService(NetworkAdminService.class);
+			if (nas != null) {
+				try {
+					nas.rollbackDefaultConfiguration();
+					s_logger.debug("ESF is set to default configuration.");
+				} catch (KuraException e) {
+					e.printStackTrace();
+					throw new GwtKuraException(GwtKuraErrorCode.INTERNAL_ERROR, e);
+				}
+			}
+		} catch (GwtKuraException e) {
+			s_logger.warn("Failed to obtain the NetworkAdminService. This is ok if running the 'No-Network' version.");
 		}
 	}
 	

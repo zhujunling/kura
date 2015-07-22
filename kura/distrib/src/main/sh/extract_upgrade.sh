@@ -47,9 +47,6 @@ cleanup() {
     reboot
 }
 
-# Trap signals performing cleanup
-trap cleanup INT TERM EXIT
-
 ##############################################
 # PRE-INSTALL SCRIPT
 ##############################################
@@ -70,6 +67,7 @@ if [ -d "${BASE_DIR}/${INSTALL_DIR}" ]; then
 fi
 
 # Exit performing cleanup at the first error
+trap cleanup INT TERM EXIT
 set -e
 
 # kill JVM and monit for upgrade
@@ -164,12 +162,19 @@ unzip -o ${TMP}/kura_*.zip -d ${BASE_DIR} >> $LOG 2>&1
 # set permissions
 chmod +x ${BASE_DIR}/${INSTALL_DIR}/bin/*.sh >> $LOG 2>&1
 
+# read the absolute path of the old installation directory from the link
+OLD_INSTALL_PATH=`readlink -f ${BASE_DIR}/kura`
+
 # Point symlink to new version
 rm -f ${BASE_DIR}/kura
+find ${BASE_DIR} \! -name '${INSTALL_DIR}' -delete
 ln -s ${BASE_DIR}/${INSTALL_DIR} ${BASE_DIR}/kura
 
 # Upgrade was successful
 SUCCESS=0
+
+echo "Removing the old installation directory: ${OLD_INSTALL_PATH}" >> $LOG 2>&1
+rm -rf ${OLD_INSTALL_PATH} >> $LOG 2>&1
 
 echo "" >> $LOG 2>&1
 echo "Finished.  Kura has been upgraded in ${BASE_DIR}/kura and system will now reboot" >> $LOG 2>&1

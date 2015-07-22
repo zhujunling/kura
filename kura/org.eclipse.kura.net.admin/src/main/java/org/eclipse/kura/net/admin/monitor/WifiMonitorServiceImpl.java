@@ -11,6 +11,8 @@
  */
 package org.eclipse.kura.net.admin.monitor;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -28,6 +30,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.eclipse.kura.KuraErrorCode;
 import org.eclipse.kura.KuraException;
@@ -35,9 +38,13 @@ import org.eclipse.kura.core.net.NetworkConfiguration;
 import org.eclipse.kura.core.net.WifiInterfaceConfigImpl;
 import org.eclipse.kura.linux.net.route.RouteService;
 import org.eclipse.kura.linux.net.route.RouteServiceImpl;
+import org.eclipse.kura.linux.net.util.IScanTool;
 import org.eclipse.kura.linux.net.util.IwLinkTool;
+import org.eclipse.kura.linux.net.util.LinkTool;
 import org.eclipse.kura.linux.net.util.LinuxNetworkUtil;
-import org.eclipse.kura.linux.net.util.iwScanTool;
+import org.eclipse.kura.linux.net.util.ScanTool;
+import org.eclipse.kura.linux.net.util.iwconfigLinkTool;
+import org.eclipse.kura.linux.net.wifi.WifiOptions;
 import org.eclipse.kura.net.IPAddress;
 import org.eclipse.kura.net.NetConfig;
 import org.eclipse.kura.net.NetConfigIP4;
@@ -59,6 +66,7 @@ import org.eclipse.kura.net.wifi.WifiClientMonitorService;
 import org.eclipse.kura.net.wifi.WifiConfig;
 import org.eclipse.kura.net.wifi.WifiInterfaceAddressConfig;
 import org.eclipse.kura.net.wifi.WifiMode;
+import org.eclipse.kura.system.SystemService;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.event.Event;
 import org.osgi.service.event.EventAdmin;
@@ -77,13 +85,16 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
         NetworkConfigurationChangeEvent.NETWORK_EVENT_CONFIG_CHANGE_TOPIC,
     };
     
+    private static Object s_lock = new Object();
+    
     private final static long THREAD_INTERVAL = /*30000*/10000;
     private final static long THREAD_TERMINATION_TOUT = 1; // in seconds
     
     private static Future<?> monitorTask;
-    private static boolean stopThread;
+    private static AtomicBoolean stopThread;
             
     private NetworkService m_networkService;
+    private SystemService m_systemService;
     private EventAdmin m_eventAdmin;
     private NetworkAdminService m_netAdminService;
     private NetworkConfigurationService m_netConfigService;
@@ -93,8 +104,7 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
     private Set<String> m_disabledInterfaces;
     private Map<String, InterfaceState> m_interfaceStatuses;
     private ExecutorService m_executor;
-	private Object m_lock = new Object();
-	
+		
 	private NetworkConfiguration m_currentNetworkConfiguration;
 	private NetworkConfiguration m_newNetConfiguration;
 	
@@ -112,6 +122,14 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
     public void unsetNetworkService(NetworkService networkService) {
         m_networkService = null;
     }
+    
+    public void setSystemService(SystemService systemService) {
+		m_systemService = systemService;
+	}
+
+	public void unsetSystemService(SystemService systemService) {
+		m_systemService = null;
+	}
 
     public void setEventAdmin(EventAdmin eventAdmin) {
         m_eventAdmin = eventAdmin;
@@ -152,14 +170,17 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
         m_interfaceStatuses = new HashMap<String, InterfaceState>();
         
         m_executor = Executors.newSingleThreadExecutor();
+        
+        stopThread = new AtomicBoolean();
 		
         Dictionary<String, String[]> d = new Hashtable<String, String[]>();
         d.put(EventConstants.EVENT_TOPIC, EVENT_TOPICS);
         componentContext.getBundleContext().registerService(EventHandler.class.getName(), this, d);
         m_listeners = new ArrayList<WifiClientMonitorListener>();
         try {
-            m_newNetConfiguration = m_netConfigService.getNetworkConfiguration();
-            initializeMonitoredInterfaces(m_newNetConfiguration);
+        	m_currentNetworkConfiguration = m_netConfigService.getNetworkConfiguration();
+            initializeMonitoredInterfaces(m_currentNetworkConfiguration);
+        	
         } catch (KuraException e) {
             s_logger.error("Could not update list of interfaces", e);
         }        
@@ -167,8 +188,9 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
 
     protected void deactivate(ComponentContext componentContext) {
     	m_listeners = null;
-    	stopThread = true;
         if ((monitorTask != null) && (!monitorTask.isDone())) {
+        	stopThread.set(true);
+        	monitorNotity();
         	s_logger.debug("Cancelling WifiMonitor task ...");
         	monitorTask.cancel(true);
     		s_logger.info("WifiMonitor task cancelled? = {}", monitorTask.isDone());
@@ -189,16 +211,16 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
     }
     
     private void monitor() {
-        synchronized(m_lock) {
+        synchronized(s_lock) {
             try {
                 // Check to see if the configuration has changed
             	//s_logger.debug("m_newNetConfiguration: " + m_newNetConfiguration);
             	//s_logger.debug("m_currentNetworkConfiguration: " + m_currentNetworkConfiguration);
-            	
+             	
                 if(m_newNetConfiguration != null && !m_newNetConfiguration.equals(m_currentNetworkConfiguration)) {
-                    s_logger.debug("monitor() :: Found a new network configuration");
-                    List<String> interfacesToReconfigure = new ArrayList<String>();
-    
+                    s_logger.info("monitor() :: Found a new WiFi network configuration");
+                    
+                    List<String> interfacesToReconfigure = new ArrayList<String>();    
                     interfacesToReconfigure.addAll(getReconfiguredWifiInterfaces());
                         
                     m_currentNetworkConfiguration = m_newNetConfiguration;
@@ -213,13 +235,13 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
                 // Check all interfaces configured to be enabled
                 for(String interfaceName : m_enabledInterfaces) {
                     InterfaceState wifiState = m_interfaceStatuses.get(interfaceName);
-                    WifiInterfaceConfigImpl wifiInterfaceConfig = (WifiInterfaceConfigImpl) m_currentNetworkConfiguration.getNetInterfaceConfig(interfaceName);;                            
+                    WifiInterfaceConfigImpl wifiInterfaceConfig = (WifiInterfaceConfigImpl) m_currentNetworkConfiguration.getNetInterfaceConfig(interfaceName);
                     WifiConfig wifiConfig = getWifiConfig(wifiInterfaceConfig);
     
                     //s_logger.debug("Evaluating: " + interfaceName + " and is currently up? " + wifiState.isUp());
                     //s_logger.debug("Evaluating: " + interfaceName + " and is currently link up? " + wifiState.isLinkUp());
                      
-                    if(wifiState.isUp()) {
+                    if(wifiConfig != null && wifiState.isUp()) {
                         if(WifiMode.INFRA.equals(wifiConfig.getMode())) {
                         	// get signal strength only if somebody needs it
                         	if ((m_listeners != null) && (m_listeners.size() > 0)) {
@@ -229,8 +251,8 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
                         			rssi = getSignalLevel(interfaceName,wifiConfig.getSSID());
                         			s_logger.debug("monitor() :: Wifi RSSI is {}", rssi);
                         		} catch (KuraException e) {
-                        			s_logger.error("monitor() :: Failed to get Signal Level for {} -> {}", interfaceName,wifiConfig.getSSID());
-                        			e.printStackTrace();
+                        			s_logger.error("monitor() :: Failed to get Signal Level for {} -> {}", interfaceName, wifiConfig.getSSID());
+                        			s_logger.error("monitor() :: Failed to get Signal Level - {}", e);
                         			rssi = 0;
                         		} 
                         		for (WifiClientMonitorListener listener : m_listeners) {
@@ -272,26 +294,34 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
         	            			}
         	            		}
                         	}
-                        }
-                        // if MASTER consider the link as 'up' - TODO: check that hostapd is running
-                    } else {
-                        // State is currently down
-                        if(WifiMode.MASTER.equals(wifiConfig.getMode())) {
-                            s_logger.debug("monitor() :: enable {} in master mode", interfaceName);                            
-                            enableInterface(wifiInterfaceConfig);
-                        } else if (WifiMode.INFRA.equals(wifiConfig.getMode())) {
-                        	if (wifiConfig.ignoreSSID()) {
-                        		s_logger.info("monitor() :: enable {} in infra mode", interfaceName);                                
+                        } else if (WifiMode.MASTER.equals(wifiConfig.getMode())) {
+                        	if(!wifiState.isLinkUp()) {
                         		enableInterface(wifiInterfaceConfig);
-                        	} else {
-	                            if(isAccessPointAvailable(interfaceName, wifiConfig.getSSID())) {
-	                                s_logger.info("monitor() :: found access point - enable {} in infra mode", interfaceName);                                
-	                                enableInterface(wifiInterfaceConfig);
-	                            } else {
-	                            	s_logger.warn("monitor() :: {} - access point is not available", wifiConfig.getSSID());
-	                            }
                         	}
                         }
+                    } else {
+                        // State is currently down
+                    	try {
+	                        if(WifiMode.MASTER.equals(wifiConfig.getMode())) {
+	                            s_logger.debug("monitor() :: enable {} in master mode", interfaceName);                            
+	                            enableInterface(wifiInterfaceConfig);
+	                        } else if (WifiMode.INFRA.equals(wifiConfig.getMode())) {
+	                        	if (wifiConfig.ignoreSSID()) {
+	                        		s_logger.info("monitor() :: enable {} in infra mode", interfaceName);                                
+	                        		enableInterface(wifiInterfaceConfig);
+	                        	} else {
+		                            if(isAccessPointAvailable(interfaceName, wifiConfig.getSSID())) {
+		                                s_logger.info("monitor() :: found access point - enable {} in infra mode", interfaceName);                                
+		                                enableInterface(wifiInterfaceConfig);
+		                            } else {
+		                            	s_logger.warn("monitor() :: {} - access point is not available", wifiConfig.getSSID());
+		                            }
+	                        	}
+	                        }
+						} catch (KuraException e) {
+							s_logger.error("monitor() :: Error enabling {} interface, will try to reset wifi", interfaceName, e);
+							resetWifiDevice();
+						}
                     }
                 }
                 
@@ -313,14 +343,14 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
                 if(m_enabledInterfaces.size() == 0) {
                     if(monitorTask != null) {
                         s_logger.debug("monitor() :: No enabled wifi interfaces - shutting down monitor thread");
-                        stopThread = true;
+                        stopThread.set(true);
                         monitorTask.cancel(true);
                         monitorTask = null;
                     }
                 }
     
             } catch (Exception e) {
-                e.printStackTrace();
+                s_logger.warn("Error during WiFi Monitor handle event", e);
             }
         }
     }
@@ -390,7 +420,7 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
 
     @Override
     public void handleEvent(Event event) {
-        s_logger.debug("handleEvent - topic: " + event.getTopic());
+        s_logger.debug("handleEvent - topic: {}", event.getTopic());
         String topic = event.getTopic();
         
         if (topic.equals(NetworkConfigurationChangeEvent.NETWORK_EVENT_CONFIG_CHANGE_TOPIC)) {
@@ -412,7 +442,7 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
                         initializeMonitoredInterfaces(m_newNetConfiguration);
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    s_logger.warn("Error during WiFi Monitor handle event", e);
                 }
             }
         }
@@ -541,14 +571,15 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
     }
     
     private void initializeMonitoredInterfaces(NetworkConfiguration networkConfiguration) throws KuraException {
-        synchronized (m_lock) {
+        synchronized (s_lock) {
             m_enabledInterfaces.clear();
             m_disabledInterfaces.clear();
     
             if(networkConfiguration != null) {
-                for (String interfaceName : m_networkService.getAllNetworkInterfaceNames()) {
-                    // skip non-wifi interfaces
-                    if(LinuxNetworkUtil.getType(interfaceName) != NetInterfaceType.WIFI) {
+                for (NetInterfaceConfig<? extends NetInterfaceAddressConfig> netInterfaceConfig: networkConfiguration.getNetInterfaceConfigs()) {
+                    
+                    String interfaceName = netInterfaceConfig.getName(); 
+                    if (netInterfaceConfig.getType() != NetInterfaceType.WIFI) {
                         continue;
                     }
     
@@ -557,7 +588,6 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
                         continue;
                     }
                     
-                    NetInterfaceConfig<? extends NetInterfaceAddressConfig> netInterfaceConfig = networkConfiguration.getNetInterfaceConfig(interfaceName);
                     if(netInterfaceConfig instanceof WifiInterfaceConfigImpl) {
                         if(isWifiEnabled((WifiInterfaceConfigImpl)netInterfaceConfig)) {
                         	s_logger.debug("Adding " + interfaceName + " to enabledInterfaces");
@@ -569,31 +599,33 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
                     }
                 }
             } else {
-            	s_logger.debug("networkConfiguration is null");
+            	s_logger.info("networkConfiguration is null");
             }
             
             if(m_enabledInterfaces.size() > 0) {
                 m_interfaceStatuses = getInterfaceStatuses(m_enabledInterfaces);
                 
                 if(monitorTask == null) {
-	                s_logger.debug("Starting WifiMonitor thread...");
-	                stopThread = false;
+	                s_logger.info("Starting WifiMonitor thread...");
+	                stopThread.set(false);
 	                monitorTask = m_executor.submit(new Runnable() {
 	                    @Override
 	                    public void run() {
-	                    	while (!stopThread) {
+	                    	while (!stopThread.get()) {
 	                    		Thread.currentThread().setName("WifiMonitor Thread");
 	                        	try {
 	                        		monitor();
-									Thread.sleep(THREAD_INTERVAL);
-								} catch (InterruptedException e) {
-									s_logger.debug(e.getMessage());
+	                        		monitorWait();
+								} catch (InterruptedException interruptedException) {
+									Thread.interrupted();
+	                                s_logger.debug("WiFi monitor interrupted - {}", interruptedException);
 								} catch (Throwable t) {
-									s_logger.error("Exception while monitoring WiFi connection {}", t.toString());
-									t.printStackTrace();
+	                                s_logger.error("Exception while monitoring WiFi connection - {}", t);
 								}
 	                    	}
 	                }});
+                } else {
+                	monitorNotity();
                 }
             }
         }
@@ -753,12 +785,15 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
     private boolean isAccessPointAvailable(String interfaceName, String ssid) throws KuraException {
         boolean available = false;
 		if (ssid != null) {
-			List<WifiAccessPoint> wifiAccessPoints = new iwScanTool(interfaceName).scan();
-			for (WifiAccessPoint wap : wifiAccessPoints) {
-				if (ssid.equals(wap.getSSID())) {
-					s_logger.trace("isAccessPointAvailable() :: SSID={} is available :: strength={}", ssid, wap.getStrength());
-					available = wap.getStrength() > 0;
-					break;
+			IScanTool scanTool = ScanTool.get(interfaceName);
+			if (scanTool != null) {
+				List<WifiAccessPoint> wifiAccessPoints = scanTool.scan();
+				for (WifiAccessPoint wap : wifiAccessPoints) {
+					if (ssid.equals(wap.getSSID())) {
+						s_logger.trace("isAccessPointAvailable() :: SSID={} is available :: strength={}", ssid, wap.getStrength());
+						available = Math.abs(wap.getStrength()) > 0;
+						break;
+					}
 				}
 			}
 		}
@@ -770,14 +805,24 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
 	public int getSignalLevel(String interfaceName, String ssid)
 			throws KuraException {
 		int rssi = 0;
-		if (ssid != null) {
-			InterfaceState wifiState = m_interfaceStatuses.get(interfaceName);
+		InterfaceState wifiState = m_interfaceStatuses.get(interfaceName);
+		if ((wifiState != null) && (ssid != null)) {
 			if(wifiState.isUp()) {
 				s_logger.trace("getSignalLevel() :: using 'iw dev wlan0 link' command ...");
-				IwLinkTool iwLinkTool = new IwLinkTool("iw", interfaceName);
-				if(iwLinkTool.get()) { 
-					if (iwLinkTool.isLinkDetected()) {
-						rssi = iwLinkTool.getSignal();
+				//IwLinkTool iwLinkTool = new IwLinkTool(interfaceName);
+				Collection<String> supportedWifiOptions = WifiOptions.getSupportedOptions(interfaceName);
+				LinkTool linkTool = null;
+				if ((supportedWifiOptions != null) && (supportedWifiOptions.size() > 0)) {
+		            if (supportedWifiOptions.contains(WifiOptions.WIFI_MANAGED_DRIVER_NL80211)) {
+		            	linkTool = new IwLinkTool(interfaceName);
+		            } else if (supportedWifiOptions.contains(WifiOptions.WIFI_MANAGED_DRIVER_WEXT)) {
+		            	linkTool = new iwconfigLinkTool(interfaceName);
+		            }
+				}
+				
+				if((linkTool != null) && linkTool.get()) { 
+					if (linkTool.isLinkDetected()) {
+						rssi = linkTool.getSignal();
 						s_logger.debug("getSignalLevel() :: rssi={} (using 'iw dev wlan0 link')", rssi);
 					}
 				}
@@ -785,14 +830,17 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
 			
 			if (rssi == 0) {
 				s_logger.trace("getSignalLevel() :: using 'iw dev wlan0 scan' command ...");
-				List<WifiAccessPoint> wifiAccessPoints = new iwScanTool(interfaceName).scan();
-				for (WifiAccessPoint wap : wifiAccessPoints) {
-					if (ssid.equals(wap.getSSID())) {
-						if (wap.getStrength() > 0) {
-							rssi = 0 - wap.getStrength();
-							s_logger.debug("getSignalLevel() :: rssi={} (using 'iw dev wlan0 scan')", rssi);
+				IScanTool scanTool = ScanTool.get(interfaceName);
+				if (scanTool != null) {
+					List<WifiAccessPoint> wifiAccessPoints = scanTool.scan();
+					for (WifiAccessPoint wap : wifiAccessPoints) {
+						if (ssid.equals(wap.getSSID())) {
+							if (wap.getStrength() > 0) {
+								rssi = 0 - wap.getStrength();
+								s_logger.debug("getSignalLevel() :: rssi={} (using 'iw dev wlan0 scan')", rssi);
+							}
+							break;
 						}
-						break;
 					}
 				}
 			}
@@ -830,9 +878,97 @@ public class WifiMonitorServiceImpl implements WifiClientMonitorService, EventHa
         Map<String, InterfaceState> statuses = new HashMap<String, InterfaceState>();
         
         for(String interfaceName : interfaceList) {
-            statuses.put(interfaceName, new InterfaceState(interfaceName));
+        	WifiInterfaceConfigImpl wifiInterfaceConfig = (WifiInterfaceConfigImpl) m_currentNetworkConfiguration.getNetInterfaceConfig(interfaceName);
+        	if(wifiInterfaceConfig == null){
+        		continue;
+        	}
+        	WifiConfig wifiConfig = getWifiConfig(wifiInterfaceConfig);
+        	if(wifiConfig != null){
+        		statuses.put(interfaceName, new WifiInterfaceState(interfaceName, wifiConfig.getMode()));
+        	}
         }
         
         return statuses;
     }
+    
+    private boolean resetWifiDevice() throws Exception {
+    	boolean ret = false;
+    	if (isWifiDeviceOn()) {
+    		turnWifiDeviceOff();
+    	}
+    	if (isWifiDeviceReady(false, 10)) {
+    		turnWifiDeviceOn();
+    		ret = this.isWifiDeviceReady(true, 20);
+    	}
+    	return ret;
+    }
+    
+    private boolean isWifiDeviceReady(boolean expected, int tout) {
+    	boolean deviceReady = false;
+    	long tmrStart = System.currentTimeMillis();
+    	do {
+    		try {
+				Thread.sleep(1000);
+			} catch (InterruptedException e) {
+			}
+    		boolean deviceOn = isWifiDeviceOn();
+    		s_logger.trace("isWifiDeviceReady()? :: deviceOn={}, expected={}", deviceOn, expected);
+    		if (deviceOn == expected) {
+    			deviceReady = true;
+    			break;
+    		}
+    	} while ((System.currentTimeMillis()-tmrStart) < tout*1000);
+    	
+    	s_logger.debug("isWifiDeviceReady()? :: deviceReady={}", deviceReady);
+    	return deviceReady;
+    }
+    
+    private boolean isWifiDeviceOn() {
+    	boolean deviceOn = false;
+    	String platform = m_systemService.getPlatform();
+    	if (platform.equals("reliagate-10-20")) {
+    		File fDevice = new File("/sys/bus/pci/devices/0000:01:00.0");
+    		if (fDevice.exists()) {
+    			deviceOn = true;
+    		}
+    	}
+    	s_logger.debug("isWifiDeviceOn()? {}", deviceOn);
+    	return deviceOn;
+    }
+    
+    private void turnWifiDeviceOn() throws Exception {
+    	String platform = m_systemService.getPlatform();
+    	if (platform.equals("reliagate-10-20")) {
+    		s_logger.info("Turning Wifi device ON ...");
+    		FileWriter fw = new FileWriter("/sys/bus/pci/rescan");
+			fw.write("1");
+			fw.close();
+    	}
+    }
+    
+    private void turnWifiDeviceOff() throws Exception {
+    	String platform = m_systemService.getPlatform();
+    	if (platform.equals("reliagate-10-20")) {
+    		s_logger.info("Turning Wifi device OFF ...");
+			FileWriter fw = new FileWriter("/sys/bus/pci/devices/0000:01:00.0/remove");
+			fw.write("1");
+			fw.close();
+    	}
+    }
+    
+	private void monitorNotity() {
+		if (stopThread != null) {
+			synchronized (stopThread) {
+				stopThread.notifyAll();
+			}
+		}
+	}
+	
+	private void monitorWait() throws InterruptedException {
+		if (stopThread != null) {
+			synchronized (stopThread) {
+				stopThread.wait(THREAD_INTERVAL);
+			}
+		}
+	}
 }

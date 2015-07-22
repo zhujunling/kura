@@ -18,7 +18,7 @@
          description="Example of a GPIO Configuring Application.">
         
         <!-- 
-        <Icon resource="http://sphotos-a.xx.fbcdn.net/hphotos-ash4/p480x480/408247_10151040905591065_1989684710_n.jpg" size="32"/>
+        <Icon resource="http://s3.amazonaws.com/kura-resources/application/icon/applications-other.png" size="32"/>
         -->
         
         <AD id="gpio.pins"  
@@ -70,9 +70,9 @@
            	<Option label="Rising edge" value="2"/>            
            	<Option label="Both edges" value="3"/>                     
            	<Option label="Falling edge" value="1"/>                     
-           	<Option label="High level" value="4"/>                     
-           	<Option label="Low level" value="5"/>                     
-           	<Option label="Both levels" value="6"/>                     
+<!--            	<Option label="High level" value="4"/>                      -->
+<!--            	<Option label="Low level" value="5"/>                      -->
+<!--            	<Option label="Both levels" value="6"/>                      -->
            </AD>
                     
           </OCD>

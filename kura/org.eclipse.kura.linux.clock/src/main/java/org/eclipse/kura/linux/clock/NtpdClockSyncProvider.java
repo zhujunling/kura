@@ -16,6 +16,7 @@ import java.util.Date;
 import org.eclipse.kura.KuraErrorCode;
 import org.eclipse.kura.KuraException;
 import org.eclipse.kura.core.util.ProcessUtil;
+import org.eclipse.kura.core.util.SafeProcess;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,9 +30,10 @@ public class NtpdClockSyncProvider extends AbstractNtpClockSyncProvider
 	//
 	// ----------------------------------------------------------------	
 	
-	protected void syncClock() throws KuraException
+	protected boolean syncClock() throws KuraException
 	{
-		Process proc = null;
+		boolean ret = false;
+		SafeProcess proc = null;
 		try {			
 			// Execute a native Linux command to perform the NTP time sync.
 			int ntpTimeout = m_ntpTimeout / 1000;
@@ -44,16 +46,20 @@ public class NtpdClockSyncProvider extends AbstractNtpClockSyncProvider
 				// Call update method with 0 offset to ensure the clock event gets fired and the HW clock
 				// is updated if desired.
 				m_listener.onClockUpdate(0);
+				ret = true;
 			}
 			else {
-				s_logger.error("Unexpected error while Synchronizing System Clock with "+m_ntpHost);
+				s_logger.warn(
+						"Error while synchronizing System Clock with NTP host {}. Please verify network connectivity ...",
+						m_ntpHost);
 			}
 		} 
 		catch (Exception e) {
 			throw new KuraException(KuraErrorCode.INTERNAL_ERROR, e);
 		}
 		finally {
-			ProcessUtil.destroy(proc);
+			if (proc != null) ProcessUtil.destroy(proc);
 		}
+		return ret;
 	}
 }

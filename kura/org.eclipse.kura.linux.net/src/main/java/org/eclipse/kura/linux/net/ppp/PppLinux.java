@@ -16,6 +16,8 @@
 package org.eclipse.kura.linux.net.ppp;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
 import java.io.InputStreamReader;
 
 import org.eclipse.kura.KuraErrorCode;
@@ -54,16 +56,17 @@ public class PppLinux {
 		
 		int pid = getPid(iface, port);
 		if(pid >= 0) {
-    		s_logger.info("killing " + iface + " pid=" + pid);
+    		s_logger.info("killing {}  pid={}", iface, pid);
     		LinuxProcessUtil.kill(pid);
-    		/*
-    		if(!LinuxProcessUtil.stop(pid)) {
-                s_logger.debug("Failed to stop process...try to kill");
-                if(!LinuxProcessUtil.kill(pid)) {
-                    throw new KuraException(KuraErrorCode.INTERNAL_ERROR, ("error killing process, pid=" + pid));
-                }		    
+    		
+    		if (port.startsWith("/dev/")) {
+    			port = port.substring("/dev/".length());
     		}
-    		*/
+    		File fLock = new File("/var/lock/LCK.."+port);
+    		if (fLock.exists()) {
+    			s_logger.warn("disconnect() :: deleting stale lock file {}", port);
+    			fLock.delete();
+    		}
 		}
 	}
 	
@@ -91,7 +94,7 @@ public class PppLinux {
 			if (isPppRunning) {
 				break;
 			}
-			s_logger.info("Waiting " + (timeout - dif) + " ms for pppd to launch");
+			s_logger.info("Waiting {} ms for pppd to launch", (timeout - dif));
 			try {
 				Thread.sleep(timeout - dif);
 			} catch (InterruptedException e) {
@@ -106,33 +109,42 @@ public class PppLinux {
 	}
 	
 	private static int getPid(String iface, String port) throws KuraException {
-
-		int pid = -1;
-		
+		int pid = -1;		
 		synchronized (s_lock) {
 			String [] pgrepCmd = {"pgrep", "-f", ""};
 			pgrepCmd[2] = formConnectCommand(iface, port);
 			
+			BufferedReader br = null;
 			try {
 				ProcessStats processStats = LinuxProcessUtil.startWithStats(pgrepCmd);
-		    	BufferedReader br = new BufferedReader(new InputStreamReader(processStats.getInputStream()));
+		    	br = new BufferedReader(new InputStreamReader(processStats.getInputStream()));
 		    	String line = br.readLine();
 		    	if ((line != null) && (line.length() > 0)) {
 		    		pid = Integer.parseInt(line);
-		    	}
-		    	br.close();
+		    		s_logger.trace("getPid() :: pppd pid={} for {}", pid, iface);
+		    	}		    	
 			} catch (Exception e) {
 				throw new KuraException(KuraErrorCode.INTERNAL_ERROR, e);
+			}
+			finally {
+			    try { br.close(); }
+			    catch(IOException e) {
+			        s_logger.warn("Error closing input stream", e);
+			    }
 			}
 		}
 		return pid;
 	}
 	
-	private static String formConnectCommand(String peer, String port) {
-		
-		StringBuffer sb = new StringBuffer();
-		sb.append(PPP_DAEMON).append(' ').append(port).append(' ')
-				.append("call").append(' ').append(peer);
+	private static String formConnectCommand(String peer, String port) 
+	{		
+		StringBuilder sb = new StringBuilder();
+		sb.append(PPP_DAEMON)
+		  .append(' ')
+		  .append(port).append(' ')
+		  .append("call")
+		  .append(' ')
+		  .append(peer);
 		return sb.toString();
 	}
 }

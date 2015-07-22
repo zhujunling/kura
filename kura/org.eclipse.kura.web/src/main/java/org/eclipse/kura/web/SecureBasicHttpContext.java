@@ -13,14 +13,17 @@ package org.eclipse.kura.web;
 
 import java.io.IOException;
 import java.net.URL;
+import java.security.NoSuchAlgorithmException;
 import java.util.StringTokenizer;
 
 import javax.security.auth.Subject;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
-import javax.xml.bind.DatatypeConverter;
 
+import org.eclipse.kura.crypto.CryptoService;
+import org.eclipse.kura.web.server.util.ServiceLocator;
+import org.eclipse.kura.web.shared.GwtKuraException;
 import org.osgi.service.http.HttpContext;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,11 +43,13 @@ public class SecureBasicHttpContext implements HttpContext
      */
     private final HttpContext delegate;
     private AuthenticationManager m_authMgr;
+    private String m_appRoot;
     
     public SecureBasicHttpContext(HttpContext delegate,
     						      AuthenticationManager authMgr) {
         this.delegate = delegate;
         m_authMgr = authMgr;
+        m_appRoot = Console.getApplicationRoot();
     }
 
     public String getMimeType(String name) {
@@ -64,13 +69,13 @@ public class SecureBasicHttpContext implements HttpContext
         throws IOException 
     {        
     	// If a trailing "/" is used when accesssing the app, redirect
-    	if (request.getRequestURI().equals("/kura/")) {
-    		response.sendRedirect("/kura");
+    	if (request.getRequestURI().equals(m_appRoot + "/")) {
+    		response.sendRedirect(m_appRoot);
     	}
     	
     	// If using root context, redirect
     	if (request.getRequestURI().equals("/")) {
-    		response.sendRedirect("/kura");
+    		response.sendRedirect(m_appRoot);
     	}
     	
     	HttpSession session = request.getSession(false);
@@ -98,7 +103,14 @@ public class SecureBasicHttpContext implements HttpContext
 
         String base64 = tokens.nextToken();
         String credentials = null;
-    	credentials = new String(DatatypeConverter.parseBase64Binary(base64));
+        try {
+        	CryptoService cryptoService = ServiceLocator.getInstance().getService(CryptoService.class);
+        	credentials = cryptoService.decodeBase64(base64);
+        } catch (GwtKuraException e) {
+        	throw new IOException(e.getMessage());
+        } catch (NoSuchAlgorithmException e) {
+        	throw new IOException(e.getMessage());
+        }
         
         int colon = credentials.indexOf(':');
         String userid = credentials.substring(0, colon);
