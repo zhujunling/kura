@@ -62,6 +62,8 @@ public class SslManagerServiceImpl implements SslManagerService, ConfigurableCom
     @SuppressWarnings("unused")
     private ComponentContext         m_ctx;
     private SslManagerServiceOptions m_options;
+    
+    private boolean                  m_activated;
 
     // ----------------------------------------------------------------
     //
@@ -100,11 +102,19 @@ public class SslManagerServiceImpl implements SslManagerService, ConfigurableCom
 		// java.lang.Exception: Recursive invocation of ServiceFactory.getService
 		// on ProSyst
         m_sslServiceListeners = new SslServiceListeners(listenersTracker);
+        
+        m_activated = true;
     }
         
     public void updated(Map<String,Object> properties)
     {
         s_logger.info("updated...: " + properties);
+        
+		// Hack: Prosyst may call updated() before activate()
+		if (!m_activated) {
+			s_logger.warn("Ignoring updated() called before activate()");
+			return;
+		}
 
         // Update properties and re-publish Birth certificate
         m_options = new SslManagerServiceOptions(properties);

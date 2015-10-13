@@ -22,7 +22,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
@@ -36,14 +35,12 @@ import org.eclipse.kura.KuraTooManyInflightMessagesException;
 import org.eclipse.kura.configuration.ConfigurableComponent;
 import org.eclipse.kura.core.data.store.DbDataStore;
 import org.eclipse.kura.data.DataService;
-import org.eclipse.kura.data.DataServiceListener;
 import org.eclipse.kura.data.DataTransportListener;
 import org.eclipse.kura.data.DataTransportService;
 import org.eclipse.kura.data.DataTransportToken;
 import org.eclipse.kura.db.DbService;
 import org.osgi.service.component.ComponentContext;
 import org.osgi.service.component.ComponentException;
-import org.osgi.util.tracker.ServiceTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -68,7 +65,7 @@ public class DataServiceImpl implements DataService, DataTransportListener, Conf
 	
 	private DataTransportService m_dataTransportService;
 	private DbService m_dbService;
-	private DataServiceListeners m_dataServiceListeners;
+	private DataServiceListenerS m_dataServiceListeners;
 	
 	protected ScheduledExecutorService m_reconnectExecutor;
 	private ScheduledFuture<?> m_reconnectFuture;
@@ -82,6 +79,8 @@ public class DataServiceImpl implements DataService, DataTransportListener, Conf
 
 	private ScheduledExecutorService m_congestionExecutor;
 	private ScheduledFuture<?> m_congestionFuture;
+	
+	private boolean m_activated;
 	
 	// ----------------------------------------------------------------
 	//
@@ -127,21 +126,23 @@ public class DataServiceImpl implements DataService, DataTransportListener, Conf
 			s_logger.error("Failed to start store", e);
 			throw new ComponentException("Failed to start store", e);
 		}
-		
-		ServiceTracker<DataServiceListener, DataServiceListener> listenersTracker = new ServiceTracker<DataServiceListener, DataServiceListener>(
-				componentContext.getBundleContext(),
-				DataServiceListener.class, null);
-		 		
-		// Deferred open of tracker to prevent
-		// java.lang.Exception: Recursive invocation of ServiceFactory.getService
-		// on ProSyst
-		m_dataServiceListeners = new DataServiceListeners(listenersTracker);
+
+		m_dataServiceListeners = new DataServiceListenerS(componentContext.getBundleContext());
+		m_dataServiceListeners.start();
 		
 		startReconnectTask();
+		
+		m_activated = true;
 	}
 	
 	public void updated(Map<String, Object> properties) {
 		s_logger.info("Updating...");
+		
+		// Hack: Prosyst may call updated() before activate()
+		if (!m_activated) {
+			s_logger.warn("Ignoring updated() called before activate()");
+			return;
+		}
 		
 		stopReconnectTask();
 		
@@ -175,7 +176,7 @@ public class DataServiceImpl implements DataService, DataTransportListener, Conf
 		
 		disconnect();
 
-		m_dataServiceListeners.close();
+		m_dataServiceListeners.stop();
 				
 		m_store.stop();
 	}

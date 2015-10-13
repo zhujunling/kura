@@ -27,7 +27,6 @@ import org.eclipse.kura.KuraTooManyInflightMessagesException;
 import org.eclipse.kura.configuration.ConfigurableComponent;
 import org.eclipse.kura.core.data.transport.mqtt.MqttClientConfiguration.PersistenceType;
 import org.eclipse.kura.core.util.ValidationUtil;
-import org.eclipse.kura.data.DataTransportListener;
 import org.eclipse.kura.data.DataTransportService;
 import org.eclipse.kura.data.DataTransportToken;
 import org.eclipse.kura.ssl.SslManagerService;
@@ -45,7 +44,6 @@ import org.eclipse.paho.client.mqttv3.MqttPersistenceException;
 import org.eclipse.paho.client.mqttv3.persist.MemoryPersistence;
 import org.eclipse.paho.client.mqttv3.persist.MqttDefaultFilePersistence;
 import org.osgi.service.component.ComponentContext;
-import org.osgi.util.tracker.ServiceTracker;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -72,17 +70,19 @@ public class MqttDataTransport implements DataTransportService, MqttCallback,
 
 	private MqttAsyncClient m_mqttClient;
 
-	private DataTransportListeners m_dataTransportListeners;
+	private DataTransportListenerS m_dataTransportListeners;
 
 	private MqttClientConfiguration m_clientConf;
 	private boolean m_newSession;
 	private String m_sessionId;
 
-	PersistenceType m_persistenceType;
-	MqttClientPersistence m_persistence;
+	private PersistenceType m_persistenceType;
+	private MqttClientPersistence m_persistence;
 
 	private Map<String, String> m_topicContext = new HashMap<String, String>();
 	private Map<String, Object> m_properties = new HashMap<String, Object>();
+	
+	private boolean m_activated;
 
 	private static final String MQTT_BROKER_URL_PROP_NAME = "broker-url";
 	private static final String MQTT_USERNAME_PROP_NAME = "username";
@@ -149,18 +149,13 @@ public class MqttDataTransport implements DataTransportService, MqttCallback,
 					"Invalid client configuration. Service will not be able to connect until the configuration is updated",
 					e);
 		}
+		
+		m_dataTransportListeners = new DataTransportListenerS(componentContext.getBundleContext());
+		m_dataTransportListeners.start();
 
-		ServiceTracker<DataTransportListener, DataTransportListener> listenersTracker = new ServiceTracker<DataTransportListener, DataTransportListener>(
-				componentContext.getBundleContext(),
-				DataTransportListener.class, null);
-
-		// Deferred open of tracker to prevent
-		// java.lang.Exception: Recursive invocation of
-		// ServiceFactory.getService
-		// on ProSyst
-		m_dataTransportListeners = new DataTransportListeners(listenersTracker);
-
-		// Do nothing waiting for the connect request from the upper layer.
+		m_activated = true;
+		
+		// Do nothing waiting for the connect request from the upper layer.		
 	}
 
 	protected void deactivate(ComponentContext componentContext) {
@@ -177,11 +172,17 @@ public class MqttDataTransport implements DataTransportService, MqttCallback,
 			disconnect(0);
 		}
 
-		m_dataTransportListeners.close();
+		m_dataTransportListeners.stop();
 	}
 
 	public void updated(Map<String, Object> properties) {
 		s_logger.info("Updating...");
+		
+		// Hack: Prosyst may call updated() before activate()
+		if (!m_activated) {
+			s_logger.warn("Ignoring updated() called before activate()");
+			return;
+		}
 
 		m_properties.clear();
 		m_properties.putAll(properties);

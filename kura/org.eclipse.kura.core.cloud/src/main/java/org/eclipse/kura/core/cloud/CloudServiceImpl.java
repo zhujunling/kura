@@ -78,6 +78,7 @@ public class CloudServiceImpl implements CloudService, DataServiceListener, Conf
 	String                  		m_iccid;
 	String                  		m_imsi;
 
+	private boolean                 m_activated;
 	
 	public CloudServiceImpl() {
 		m_cloudClients = new CopyOnWriteArrayList<CloudClientImpl>();
@@ -179,11 +180,19 @@ public class CloudServiceImpl implements CloudService, DataServiceListener, Conf
 		String[] eventTopics = {PositionLockedEvent.POSITION_LOCKED_EVENT_TOPIC, ModemReadyEvent.MODEM_EVENT_READY_TOPIC};
 		props.put(EventConstants.EVENT_TOPIC, eventTopics);
 		m_ctx.getBundleContext().registerService(EventHandler.class.getName(), this, props);
+		
+		m_activated = true;
 	}
 		
 	public void updated(Map<String,Object> properties)
 	{
 		s_logger.info("updated...: " + properties);
+		
+		// Hack: Prosyst may call updated() before activate()
+		if (!m_activated) {
+			s_logger.warn("Ignoring updated() called before activate()");
+			return;
+		}
 
 		// Update properties and re-publish Birth certificate
 		m_options = new CloudServiceOptions(properties, m_systemService);
