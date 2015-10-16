@@ -137,6 +137,6 @@
                 	</plugins>
                 </pluginManagement>
         </build>
-<version>1.0.2-SNAPSHOT</version>
+<version>1.0.2.rc1</version>
 </project>
 
