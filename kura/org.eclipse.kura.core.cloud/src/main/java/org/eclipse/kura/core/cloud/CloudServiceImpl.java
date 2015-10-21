@@ -34,7 +34,6 @@ import org.eclipse.kura.cloud.CloudPayloadProtoBufDecoder;
 import org.eclipse.kura.cloud.CloudPayloadProtoBufEncoder;
 import org.eclipse.kura.cloud.CloudService;
 import org.eclipse.kura.configuration.ConfigurableComponent;
-import org.eclipse.kura.core.message.KuraBirthPayload;
 import org.eclipse.kura.data.DataService;
 import org.eclipse.kura.data.DataServiceListener;
 import org.eclipse.kura.message.KuraPayload;
@@ -181,6 +180,15 @@ public class CloudServiceImpl implements CloudService, DataServiceListener, Conf
 		props.put(EventConstants.EVENT_TOPIC, eventTopics);
 		m_ctx.getBundleContext().registerService(EventHandler.class.getName(), this, props);
 		
+		m_dataService.addDataServiceListener(this);
+
+		// Late activation.
+		// Publish the birth certificate if the DataService is already connected
+		if (m_dataService != null && m_dataService.isConnected()) {
+			s_logger.warn("DataService is already connected. Publish BIRTH certificate");
+			publishBirthCertificate();
+		}
+		
 		m_activated = true;
 	}
 		
@@ -208,6 +216,8 @@ public class CloudServiceImpl implements CloudService, DataServiceListener, Conf
 		if (m_dataService != null && m_dataService.isConnected()) {
 			publishDisconnectCertificate();
 		}
+		
+		m_dataService.removeDataServiceListener(this);
 
 		// no need to release the cloud clients as the updated app 
 		// certificate is already published due the missing dependency

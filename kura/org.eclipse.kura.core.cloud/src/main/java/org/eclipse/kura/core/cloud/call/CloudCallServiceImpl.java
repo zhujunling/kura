@@ -77,10 +77,12 @@ public class CloudCallServiceImpl implements CloudCallService, DataServiceListen
 	protected void activate(ComponentContext componentContext) {
 		s_logger.info("Activating...");
 		m_lock = new Object();
+		m_dataService.addDataServiceListener(this);
 	}
 
 	protected void deactivate(ComponentContext componentContext) {
 		s_logger.info("Deactivating...");
+		m_dataService.removeDataServiceListener(this);
 		synchronized (m_lock) {
 			m_lock.notifyAll();
 		}

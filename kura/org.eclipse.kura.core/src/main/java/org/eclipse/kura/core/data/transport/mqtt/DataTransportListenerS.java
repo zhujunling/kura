@@ -1,7 +1,9 @@
 package org.eclipse.kura.core.data.transport.mqtt;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.kura.data.DataTransportListener;
@@ -20,11 +22,13 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 	
 	private BundleContext m_ctx;
 	private Map<ServiceReference<DataTransportListener>, DataTransportListener> m_serviceReferences;
+	private List<DataTransportListener> m_listeners;
 	private Object m_lock;
 	
 	public DataTransportListenerS(BundleContext ctx) {
 		m_ctx = ctx;
-		m_serviceReferences = new HashMap<ServiceReference<DataTransportListener>, DataTransportListener>(); 
+		m_serviceReferences = new HashMap<ServiceReference<DataTransportListener>, DataTransportListener>();
+		m_listeners = new ArrayList<DataTransportListener>();
 		m_lock = new Object();
 	}
 	
@@ -49,7 +53,7 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 					m_serviceReferences.put(sr, m_ctx.getService(sr));
 					s_logger.info("Add ServiceReference {}", sr.getProperty("component.name"));
 				}
-				s_logger.debug("There are {} ServiceReferenceS", m_serviceReferences.size());
+				s_logger.info("There are {} ServiceReferenceS", m_serviceReferences.size());
 			}
 		}
 	}
@@ -74,14 +78,14 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 			synchronized (m_lock) {
 				m_serviceReferences.put((ServiceReference<DataTransportListener>) sr,
 						(DataTransportListener) m_ctx.getService(sr));
-				s_logger.debug("There are {} ServiceReferenceS", m_serviceReferences.size());
+				s_logger.info("There are {} ServiceReferenceS", m_serviceReferences.size());
 			}
 			break;
 		case ServiceEvent.UNREGISTERING:
 			s_logger.info("UNREGISTERING ServiceReference {}", sr.getProperty("component.name"));
 			synchronized (m_lock) {
 				m_serviceReferences.remove(sr);
-				s_logger.debug("There are {} ServiceReferenceS", m_serviceReferences.size());
+				s_logger.info("There are {} ServiceReferenceS", m_serviceReferences.size());
 			}
 			break;
 		default:
@@ -93,7 +97,7 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 	@Override
 	public void onConnectionEstablished(boolean newSession) {
 		DataTransportListener[] listeners = getDataTransportListenerS();
-		if (listeners != null) {
+		if (listeners != null && listeners.length != 0) {
 			for (DataTransportListener listener : listeners) {
 				try {
 					listener.onConnectionEstablished(newSession);
@@ -102,14 +106,14 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onConnectionEstablished");
+			s_logger.warn("No registered listeners. Ignoring onConnectionEstablished");
 		}
 	}
 
 	@Override
 	public void onDisconnecting() {
 		DataTransportListener[] listeners = getDataTransportListenerS();
-		if (listeners != null) {
+		if (listeners != null && listeners.length != 0) {
 			for (DataTransportListener listener : listeners) {
 				try {
 					listener.onDisconnecting();
@@ -118,14 +122,14 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onDisconnecting");
+			s_logger.warn("No registered listeners. Ignoring onDisconnecting");
 		}
 	}
 
 	@Override
 	public void onDisconnected() {
 		DataTransportListener[] listeners = getDataTransportListenerS();
-		if (listeners != null) {
+		if (listeners != null && listeners.length != 0) {
 			for (DataTransportListener listener : listeners) {
 				try {
 					listener.onDisconnected();
@@ -134,14 +138,14 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onDisconnected");
+			s_logger.warn("No registered listeners. Ignoring onDisconnected");
 		}
 	}
 
 	@Override
 	public void onConfigurationUpdating(boolean wasConnected) {
 		DataTransportListener[] listeners = getDataTransportListenerS();
-		if (listeners != null) {
+		if (listeners != null && listeners.length != 0) {
 			for (DataTransportListener listener : listeners) {
 				try {
 					listener.onConfigurationUpdating(wasConnected);
@@ -150,14 +154,14 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onConfigurationUpdating");
+			s_logger.warn("No registered listeners. Ignoring onConfigurationUpdating");
 		}
 	}
 
 	@Override
 	public void onConfigurationUpdated(boolean wasConnected) {
 		DataTransportListener[] listeners = getDataTransportListenerS();
-		if (listeners != null) {
+		if (listeners != null && listeners.length != 0) {
 			for (DataTransportListener listener : listeners) {
 				try {
 					listener.onConfigurationUpdated(wasConnected);
@@ -166,14 +170,14 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onConfigurationUpdated");
+			s_logger.warn("No registered listeners. Ignoring onConfigurationUpdated");
 		}
 	}
 
 	@Override
 	public void onConnectionLost(Throwable cause) {
 		DataTransportListener[] listeners = getDataTransportListenerS();
-		if (listeners != null) {
+		if (listeners != null && listeners.length != 0) {
 			for (DataTransportListener listener : listeners) {
 				try {
 					listener.onConnectionLost(cause);
@@ -182,7 +186,7 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onConnectionLost");
+			s_logger.warn("No registered listeners. Ignoring onConnectionLost");
 		}
 	}
 
@@ -190,7 +194,7 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 	public void onMessageArrived(String topic, byte[] payload, int qos,
 			boolean retained) {
 		DataTransportListener[] listeners = getDataTransportListenerS();
-		if (listeners != null) {
+		if (listeners != null && listeners.length != 0) {
 			for (DataTransportListener listener : listeners) {
 				try {
 					listener.onMessageArrived(topic, payload, qos, retained);
@@ -199,14 +203,14 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onMessageArrived");
+			s_logger.warn("No registered listeners. Ignoring onMessageArrived");
 		}
 	}
 
 	@Override
 	public void onMessageConfirmed(DataTransportToken token) {
 		DataTransportListener[] listeners = getDataTransportListenerS();
-		if (listeners != null) {
+		if (listeners != null && listeners.length != 0) {
 			for (DataTransportListener listener : listeners) {
 				try {
 					listener.onMessageConfirmed(token);
@@ -215,18 +219,42 @@ class DataTransportListenerS implements ServiceListener, DataTransportListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onMessageConfirmed");
+			s_logger.warn("No registered listeners. Ignoring onMessageConfirmed");
+		}
+	}
+	
+	public void add(DataTransportListener listener) {
+		synchronized (m_lock) {
+			m_listeners.add(listener);
+		}
+	}
+
+	public void remove(DataTransportListener listener) {
+		synchronized (m_lock) {
+			m_listeners.remove(listener);
 		}
 	}
 
 	private DataTransportListener[] getDataTransportListenerS() {
-		DataTransportListener[] listeners = null;
+		DataTransportListener[] result = null;
 		synchronized (m_lock) {
+			result = new DataTransportListener[m_listeners.size() +
+			                                   m_serviceReferences.size()];
+			
+			DataTransportListener[] listeners = m_listeners.toArray(new DataTransportListener[0]);
+			if (listeners != null) {
+				System.arraycopy(listeners, 0, result, 0, listeners.length);
+			}
+			
 			Collection<DataTransportListener> services = m_serviceReferences.values();
 			if (services != null) {
-				listeners = services.toArray(new DataTransportListener[0]);
+				DataTransportListener[] serviceListeners = services.toArray(new DataTransportListener[0]);
+				if (serviceListeners != null) {
+					System.arraycopy(serviceListeners, 0, 
+							         result, listeners.length, serviceListeners.length);
+				}
 			}
 		}
-		return listeners;
+		return result;
 	}
 }

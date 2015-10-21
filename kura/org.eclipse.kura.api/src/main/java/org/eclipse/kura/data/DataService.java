@@ -186,4 +186,19 @@ public interface DataService
 	List<Integer> getDroppedInFlightMessageIds(String topicRegex)
 			throws KuraStoreException;
 	
+	/**
+	 * Adds a listener.
+	 * This is more reliable than using the OSGi whiteboard pattern
+	 * {@link http://www.osgi.org/wiki/uploads/Links/whiteboard.pdf}.
+	 * 
+	 * @param listener
+	 */
+	public void addDataServiceListener(DataServiceListener listener);
+	
+	/**
+	 * Removes a listener.
+	 * 
+	 * @param listener
+	 */
+	public void removeDataServiceListener(DataServiceListener listener);
 }

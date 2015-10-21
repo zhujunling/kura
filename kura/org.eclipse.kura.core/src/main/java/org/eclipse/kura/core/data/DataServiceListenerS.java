@@ -1,7 +1,9 @@
 package org.eclipse.kura.core.data;
 
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.eclipse.kura.data.DataServiceListener;
@@ -19,11 +21,13 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 	
 	private BundleContext m_ctx;
 	private Map<ServiceReference<DataServiceListener>, DataServiceListener> m_serviceReferences;
+	private List<DataServiceListener> m_listeners;
 	private Object m_lock;
 	
 	public DataServiceListenerS(BundleContext ctx) {
 		m_ctx = ctx;
-		m_serviceReferences = new HashMap<ServiceReference<DataServiceListener>, DataServiceListener>(); 
+		m_serviceReferences = new HashMap<ServiceReference<DataServiceListener>, DataServiceListener>();
+		m_listeners = new ArrayList<DataServiceListener>();
 		m_lock = new Object();
 	}
 	
@@ -48,7 +52,7 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 					m_serviceReferences.put(sr, m_ctx.getService(sr));
 					s_logger.info("Add ServiceReference {}", sr.getProperty("component.name"));
 				}
-				s_logger.debug("There are {} ServiceReferenceS", m_serviceReferences.size());
+				s_logger.info("There are {} ServiceReferenceS", m_serviceReferences.size());
 			}
 		}
 	}
@@ -73,14 +77,14 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 			synchronized (m_lock) {
 				m_serviceReferences.put((ServiceReference<DataServiceListener>) sr,
 						(DataServiceListener) m_ctx.getService(sr));
-				s_logger.debug("There are {} ServiceReferenceS", m_serviceReferences.size());
+				s_logger.info("There are {} ServiceReferenceS", m_serviceReferences.size());
 			}
 			break;
 		case ServiceEvent.UNREGISTERING:
 			s_logger.info("UNREGISTERING ServiceReference {}", sr.getProperty("component.name"));
 			synchronized (m_lock) {
 				m_serviceReferences.remove(sr);
-				s_logger.debug("There are {} ServiceReferenceS", m_serviceReferences.size());
+				s_logger.info("There are {} ServiceReferenceS", m_serviceReferences.size());
 			}
 			break;
 		default:
@@ -101,7 +105,7 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onConnectionEstablished");
+			s_logger.warn("No registered listeners. Ignoring onConnectionEstablished");
 		}
 	}
 
@@ -117,7 +121,7 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onDisconnecting");
+			s_logger.warn("No registered listeners. Ignoring onDisconnecting");
 		}
 	}
 
@@ -133,7 +137,7 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onDisconnected");
+			s_logger.warn("No registered listeners. Ignoring onDisconnected");
 		}
 	}
 
@@ -149,7 +153,7 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onConnectionLost");
+			s_logger.warn("No registered listeners. Ignoring onConnectionLost");
 		}
 	}
 
@@ -166,7 +170,7 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onMessageArrived");
+			s_logger.warn("No registered listeners. Ignoring onMessageArrived");
 		}
 	}
 
@@ -182,7 +186,7 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 				}
 			}
 		} else {
-			s_logger.info("No registered services. Ignoring onMessagePublished");
+			s_logger.warn("No registered listeners. Ignoring onMessagePublished");
 		}
 	}
 
@@ -199,18 +203,42 @@ class DataServiceListenerS implements ServiceListener, DataServiceListener {
 			}
 		} 
 		else {
-			s_logger.info("No registered services. Ignoring onMessageConfirmed");
+			s_logger.warn("No registered listeners. Ignoring onMessageConfirmed");
+		}
+	}
+	
+	public void add(DataServiceListener listener) {
+		synchronized (m_lock) {
+			m_listeners.add(listener);
 		}
 	}
 
-	private DataServiceListener[] getDataServiceListenerS() {
-		DataServiceListener[] listeners = null;
+	public void remove(DataServiceListener listener) {
 		synchronized (m_lock) {
+			m_listeners.remove(listener);
+		}
+	}
+	
+	private DataServiceListener[] getDataServiceListenerS() {
+		DataServiceListener[] result = null;
+		synchronized (m_lock) {
+			result = new DataServiceListener[m_listeners.size() +
+			                                   m_serviceReferences.size()];
+			
+			DataServiceListener[] listeners = m_listeners.toArray(new DataServiceListener[0]);
+			if (listeners != null) {
+				System.arraycopy(listeners, 0, result, 0, listeners.length);
+			}
+			
 			Collection<DataServiceListener> services = m_serviceReferences.values();
 			if (services != null) {
-				listeners = services.toArray(new DataServiceListener[0]);
+				DataServiceListener[] serviceListeners = services.toArray(new DataServiceListener[0]);
+				if (serviceListeners != null) {
+					System.arraycopy(serviceListeners, 0, 
+							         result, listeners.length, serviceListeners.length);
+				}
 			}
 		}
-		return listeners;
+		return result;
 	}
 }

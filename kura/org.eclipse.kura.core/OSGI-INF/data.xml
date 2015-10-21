@@ -23,7 +23,6 @@
    <implementation class="org.eclipse.kura.core.data.DataServiceImpl"/>
    <service>
       <provide interface="org.eclipse.kura.configuration.ConfigurableComponent"/>
-      <provide interface="org.eclipse.kura.data.DataTransportListener"/>
       <provide interface="org.eclipse.kura.data.DataService"/>
    </service>
    <property name="service.pid" value="org.eclipse.kura.data.DataService"/>

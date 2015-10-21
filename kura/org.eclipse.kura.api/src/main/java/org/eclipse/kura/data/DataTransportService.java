@@ -107,4 +107,20 @@ public interface DataTransportService
 	 */
 	public DataTransportToken publish(String topic, byte[] payload, int qos, boolean retain)
 			throws KuraTooManyInflightMessagesException, KuraException, KuraNotConnectedException;
+	
+	/**
+	 * Adds a listener.
+	 * This is more reliable than using the OSGi whiteboard pattern
+	 * {@link http://www.osgi.org/wiki/uploads/Links/whiteboard.pdf}.
+	 * 
+	 * @param listener
+	 */
+	public void addDataTransportListener(DataTransportListener listener);
+	
+	/**
+	 * Removes a listener.
+	 * 
+	 * @param listener
+	 */
+	public void removeDataTransportListener(DataTransportListener listener);
 }

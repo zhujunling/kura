@@ -27,6 +27,7 @@ import org.eclipse.kura.KuraTooManyInflightMessagesException;
 import org.eclipse.kura.configuration.ConfigurableComponent;
 import org.eclipse.kura.core.data.transport.mqtt.MqttClientConfiguration.PersistenceType;
 import org.eclipse.kura.core.util.ValidationUtil;
+import org.eclipse.kura.data.DataTransportListener;
 import org.eclipse.kura.data.DataTransportService;
 import org.eclipse.kura.data.DataTransportToken;
 import org.eclipse.kura.ssl.SslManagerService;
@@ -347,6 +348,16 @@ public class MqttDataTransport implements DataTransportService, MqttCallback,
 		} else {
 			s_logger.warn("MQTT client already disconnected");
 		}
+	}
+	
+	@Override
+	public void addDataTransportListener(DataTransportListener listener) {
+		m_dataTransportListeners.add(listener);		
+	}
+
+	@Override
+	public void removeDataTransportListener(DataTransportListener listener) {
+		m_dataTransportListeners.remove(listener);
 	}
 
 	// ---------------------------------------------------------
@@ -963,5 +974,4 @@ public class MqttDataTransport implements DataTransportService, MqttCallback,
 			return String.valueOf(MqttVersion);
 		}
 	}
-
 }

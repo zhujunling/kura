@@ -35,6 +35,7 @@ import org.eclipse.kura.KuraTooManyInflightMessagesException;
 import org.eclipse.kura.configuration.ConfigurableComponent;
 import org.eclipse.kura.core.data.store.DbDataStore;
 import org.eclipse.kura.data.DataService;
+import org.eclipse.kura.data.DataServiceListener;
 import org.eclipse.kura.data.DataTransportListener;
 import org.eclipse.kura.data.DataTransportService;
 import org.eclipse.kura.data.DataTransportToken;
@@ -130,6 +131,8 @@ public class DataServiceImpl implements DataService, DataTransportListener, Conf
 		m_dataServiceListeners = new DataServiceListenerS(componentContext.getBundleContext());
 		m_dataServiceListeners.start();
 		
+		m_dataTransportService.addDataTransportListener(this);
+		
 		startReconnectTask();
 		
 		m_activated = true;
@@ -161,7 +164,12 @@ public class DataServiceImpl implements DataService, DataTransportListener, Conf
 	protected void deactivate(ComponentContext componentContext) {
 		s_logger.info("Deactivating...");
 		
+		stopReconnectTask();
+		m_reconnectExecutor.shutdownNow();
+		
 		m_congestionExecutor.shutdownNow();
+		
+		disconnect();
 		
 		// Await termination of the publisher executor tasks
 		try {
@@ -170,11 +178,8 @@ public class DataServiceImpl implements DataService, DataTransportListener, Conf
 			s_logger.info("Interrupted", e);
 		}
 		m_publisherExecutor.shutdownNow();
-		
-		stopReconnectTask();
-		m_reconnectExecutor.shutdownNow();
-		
-		disconnect();
+				
+		m_dataTransportService.removeDataTransportListener(this);
 
 		m_dataServiceListeners.stop();
 				
@@ -201,6 +206,16 @@ public class DataServiceImpl implements DataService, DataTransportListener, Conf
 
 	public void unsetDbService(DbService dbService) {
 		this.m_dbService = null;
+	}
+	
+	@Override
+	public void addDataServiceListener(DataServiceListener listener) {
+		m_dataServiceListeners.add(listener);	
+	}
+
+	@Override
+	public void removeDataServiceListener(DataServiceListener listener) {
+		m_dataServiceListeners.remove(listener);
 	}
 	
 	@Override
