@@ -70,6 +70,7 @@ public class TestExtender implements BundleTrackerCustomizer<Object> {
 		s_logger.debug("Testing bundle: " + bundleId);
 		
 		List<Class> testClazzs = getTestClass(m_bundles.get(bundleId));
+		if(testClazzs != null){
 		for (Class clazz : testClazzs) {
 	          try {
 	        	  if(!clazz.isInterface()) {
@@ -81,11 +82,12 @@ public class TestExtender implements BundleTrackerCustomizer<Object> {
 	        	  ex.printStackTrace();
 	          }
 	      }
+		}
 	}
 	
 	public Class loadClass(String clazz, Bundle bundleHost) {
 		try {
-			Class loadClass = bundleHost.loadClass(clazz);
+			Class<?> loadClass = bundleHost.loadClass(clazz);
 			s_logger.debug("Loaded class: " + loadClass);
 			return loadClass;
 		} catch (Exception e) {
@@ -113,7 +115,7 @@ public class TestExtender implements BundleTrackerCustomizer<Object> {
 			if (entrs == null || !entrs.hasMoreElements()) {
 				return Collections.EMPTY_LIST;
 			}
-			Bundle hostBundle = getHostBundle(bundle);
+			//Bundle hostBundle = getHostBundle(bundle);
 			while (entrs.hasMoreElements()) {
 				URL e = (URL) entrs.nextElement();
 				String file = e.getFile();
@@ -125,7 +127,7 @@ public class TestExtender implements BundleTrackerCustomizer<Object> {
 					className = className.substring(9);
 				}
 				s_logger.debug("Trying to load class: " + className);
-				Class clazz = loadClass(className, hostBundle);
+				Class clazz = loadClass(className, bundle);
 				s_logger.debug("Adding test class: " + clazz);
 				clazzs.add(clazz);
 			}

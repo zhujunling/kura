@@ -208,14 +208,14 @@ public class IPTablesTest extends TestCase {
 			fr.close();
 			
 			// Restore old config
-			proc = ProcessUtil.exec("iptables-restore");			
-			OutputStreamWriter osr = new OutputStreamWriter(proc.getOutputStream());
-			BufferedWriter bw = new BufferedWriter(osr);			
-			bw.write(data.toString());
-			bw.flush();
-			bw.close();
-						
-			proc.waitFor();
+//			proc = ProcessUtil.exec("iptables-restore");			
+//			OutputStreamWriter osr = new OutputStreamWriter(proc.getOutputStream());
+//			BufferedWriter bw = new BufferedWriter(osr);			
+//			bw.write(data.toString());
+//			bw.flush();
+//			bw.close();
+//						
+//			proc.waitFor();
 		} catch (Exception e) {
 			fail("Error restoring iptables config");
 		}
