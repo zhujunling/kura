@@ -1,0 +1,15 @@
+Manifest-Version: 1.0
+Bundle-ManifestVersion: 2
+Bundle-Name: org.eclipse.kura.services.test
+Bundle-SymbolicName: org.eclipse.kura.services.test;singleton:=true
+Bundle-Version: 1.0.0.qualifier
+Bundle-RequiredExecutionEnvironment: JavaSE-1.7
+Unit-Test: true
+Bundle-ClassPath: .
+Require-Bundle: org.eclipse.kura.test;bundle-version="[1.0,1.1)",
+ org.junit;bundle-version="4.10.0"
+Import-Package: org.eclipse.kura;version="1.0.0",
+ org.eclipse.kura.clock;version="1.0.0",
+ org.osgi.service.cm,
+ org.slf4j;version="1.6.4"
+Service-Component: OSGI-INF/clockServiceTest.xml

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" name="org.eclipse.kura.services.test.ClockServiceTest">
+   <implementation class="org.eclipse.kura.services.test.ClockServiceTest"/>
+   <reference bind="setConfigAdmin" cardinality="1..1" interface="org.osgi.service.cm.ConfigurationAdmin" name="ConfigurationAdmin" policy="static" unbind="unsetConfigAdmin"/>
+   <reference bind="setClockService" cardinality="1..1" interface="org.eclipse.kura.clock.ClockService" name="ClockService" policy="static" unbind="unsetClockService"/>
+</scr:component>
