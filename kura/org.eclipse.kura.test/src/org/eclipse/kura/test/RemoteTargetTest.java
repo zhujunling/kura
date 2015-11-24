@@ -141,7 +141,7 @@ public class RemoteTargetTest {
 			}
 			
 			s_logger.warn("Tests finished - shutting down");
-			System.exit(0);
+			//System.exit(0);
 		}
 			
 		componentContext.getBundleContext().registerService(CommandProvider.class.getName(), new KuraTestCommandProvider(), null);

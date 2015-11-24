@@ -184,11 +184,14 @@ public class TestExtender implements BundleTrackerCustomizer<Object> {
 		try {
 			try {
 				if (testClass.getBeforeClass() != null) {
+					s_logger.info("before here");
 					testClass.getBeforeClass().invoke(object, new Object[0]);
+					s_logger.info("before here2");
 				}
 				
+				s_logger.info("here");
 				m_reportWriter = new BufferedWriter(new FileWriter(new File(KURA_TEST_REPORT_FILENAME), true));
-
+				s_logger.info("here2");
 				List<Method> tests = testClass.getTests();
 				for (Method method : tests) {
 					try {
