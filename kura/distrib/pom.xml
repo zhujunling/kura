@@ -1820,6 +1820,21 @@
 									</target>
 								</configuration>
 							</execution>
+							<execution>
+								<id>services-test-dp</id>
+								<phase>install</phase>
+								<goals>
+									<goal>run</goal>
+								</goals>
+								<configuration>
+									<target>
+										<property name="deployment.package.version" value="${deployment.package.version}" />
+										<property name="kura.build.version" value="${kura.build.version}" />
+										<ant antfile="${basedir}/src/main/ant/build_services_test_dp.xml"
+											target="build-dp" />
+									</target>
+								</configuration>
+							</execution>
 						</executions>
 					</plugin>
 				</plugins>

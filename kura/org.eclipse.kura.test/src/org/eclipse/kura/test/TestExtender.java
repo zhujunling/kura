@@ -14,7 +14,6 @@ package org.eclipse.kura.test;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.lang.annotation.Annotation;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.ArrayList;
@@ -27,6 +26,7 @@ import java.util.Map.Entry;
 import java.util.Set;
 
 import org.eclipse.kura.test.annotation.TestTarget;
+import org.junit.internal.AssumptionViolatedException;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
 import org.osgi.framework.BundleEvent;
@@ -39,7 +39,7 @@ public class TestExtender implements BundleTrackerCustomizer<Object> {
 	
 	private static final Logger s_logger = LoggerFactory.getLogger(TestExtender.class);
 
-	private static final String KURA_TEST_REPORT_FILENAME = "/tmp/kura_test_report.txt";
+	private static final String KURA_TEST_REPORT_FILENAME = "/opt/eurotech/esf/kura_test_report.txt";
 	
 	private Map<Long, Bundle> m_bundles;
 	private BundleContext 	  m_bundleContext;
@@ -51,7 +51,7 @@ public class TestExtender implements BundleTrackerCustomizer<Object> {
 		m_bundleContext = bundleContext;
 		m_platform = platform;
 		
-		(new File(KURA_TEST_REPORT_FILENAME)).delete();
+		//(new File(KURA_TEST_REPORT_FILENAME)).delete();
 	}
 	
 	void addBundle(long bundleId, Bundle bundle) {
@@ -184,14 +184,11 @@ public class TestExtender implements BundleTrackerCustomizer<Object> {
 		try {
 			try {
 				if (testClass.getBeforeClass() != null) {
-					s_logger.info("before here");
 					testClass.getBeforeClass().invoke(object, new Object[0]);
-					s_logger.info("before here2");
 				}
 				
-				s_logger.info("here");
 				m_reportWriter = new BufferedWriter(new FileWriter(new File(KURA_TEST_REPORT_FILENAME), true));
-				s_logger.info("here2");
+
 				List<Method> tests = testClass.getTests();
 				for (Method method : tests) {
 					try {
@@ -206,10 +203,15 @@ public class TestExtender implements BundleTrackerCustomizer<Object> {
 							m_reportWriter.write("Method : [ " + className + "." + method.getName()+" ] PASS\n");
 							m_reportWriter.flush();
 						} catch (Exception ex) {
-							s_logger.error("Method : [ " + className + "." + method.getName() + " ] FAIL", ex);
-							m_reportWriter = new BufferedWriter(new FileWriter(new File(KURA_TEST_REPORT_FILENAME), true));
-							m_reportWriter.write("Method : [ " + className + "." + method.getName() + " ] FAIL\n");
-							m_reportWriter.flush();
+							if (ex.getCause() instanceof AssumptionViolatedException) {
+								s_logger.info("Method : [ " + className + "." + method.getName() + " ] SKIP", ex);
+							}
+							else {
+								s_logger.error("Method : [ " + className + "." + method.getName() + " ] FAIL", ex);
+								m_reportWriter = new BufferedWriter(new FileWriter(new File(KURA_TEST_REPORT_FILENAME), true));
+								m_reportWriter.write("Method : [ " + className + "." + method.getName() + " ] FAIL\n");
+								m_reportWriter.flush();
+							}
 						}
 					} finally {
 						if (testClass.getAfter() != null) {

@@ -117,7 +117,7 @@ public class RemoteTargetTest {
 			}
 			
 			s_logger.debug("Starting tests");
-			startingTests();
+			//startingTests();
 			
 			for(Bundle bundle : currentBundles) {
 				if(isTestFragment(bundle)) {
@@ -129,7 +129,7 @@ public class RemoteTargetTest {
 				}
 			}
 			
-			finishedTests();
+			//finishedTests();
 			
 			if(netAdminBundle != null) {
 				s_logger.debug("Re-enabling network admin bundle");

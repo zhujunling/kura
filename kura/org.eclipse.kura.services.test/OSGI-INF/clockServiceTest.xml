@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" name="org.eclipse.kura.services.test.ClockServiceTest">
+<scr:component xmlns:scr="http://www.osgi.org/xmlns/scr/v1.1.0" activate="activate" configuration-policy="optional" name="org.eclipse.kura.services.test.ClockServiceTest">
    <implementation class="org.eclipse.kura.services.test.ClockServiceTest"/>
-   <reference bind="setConfigAdmin" cardinality="1..1" interface="org.osgi.service.cm.ConfigurationAdmin" name="ConfigurationAdmin" policy="static" unbind="unsetConfigAdmin"/>
    <reference bind="setClockService" cardinality="1..1" interface="org.eclipse.kura.clock.ClockService" name="ClockService" policy="static" unbind="unsetClockService"/>
+   <reference bind="setConfigurationService" cardinality="1..1" interface="org.eclipse.kura.configuration.ConfigurationService" name="ConfigurationService" policy="static" unbind="unsetConfigurationService"/>
+   <property name="service.pid" type="String" value="org.eclipse.kura.services.test.ClockServiceTest"/>
 </scr:component>
