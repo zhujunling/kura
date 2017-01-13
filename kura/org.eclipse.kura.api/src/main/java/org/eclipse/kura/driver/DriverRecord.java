@@ -21,6 +21,7 @@ import java.util.Map;
 import org.eclipse.kura.annotation.NotThreadSafe;
 import org.eclipse.kura.type.DataType;
 import org.eclipse.kura.type.TypedValue;
+import org.osgi.annotation.versioning.ProviderType;
 
 /**
  * The Class DriverRecord represents records needed for read, write or a monitor
@@ -65,8 +66,10 @@ import org.eclipse.kura.type.TypedValue;
  * set the relevant flag in the driver status.
  *
  * @noextend This class is not intended to be extended by clients.
+ * @since 1.2
  */
 @NotThreadSafe
+@ProviderType
 public class DriverRecord {
 
     /**

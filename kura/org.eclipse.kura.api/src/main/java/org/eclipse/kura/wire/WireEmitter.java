@@ -9,6 +9,7 @@
  *******************************************************************************/
 package org.eclipse.kura.wire;
 
+import org.osgi.annotation.versioning.ConsumerType;
 import org.osgi.service.wireadmin.Producer;
 
 /**
@@ -16,5 +17,6 @@ import org.osgi.service.wireadmin.Producer;
  * is a data producer that can produce values. The produced values can be used
  * by other {@link WireReceiver} components if it is wired with each other.
  */
+@ConsumerType
 public interface WireEmitter extends WireComponent, Producer {
 }

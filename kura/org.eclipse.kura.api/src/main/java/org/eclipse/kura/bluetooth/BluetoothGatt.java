@@ -15,13 +15,16 @@ import java.util.List;
 import java.util.UUID;
 
 import org.eclipse.kura.KuraException;
+import org.osgi.annotation.versioning.ProviderType;
 
 /**
  * The BluetoothGatt service is the main communication interface with the Bluettoth LE device. The service
  * will provide information about available services and mechanisms for reading and writing to
  * available characteristics.
  *
+ * @noimplement This interface is not intended to be implemented by clients.
  */
+@ProviderType
 public interface BluetoothGatt {
 
     /**
@@ -37,7 +40,7 @@ public interface BluetoothGatt {
      * @param adapterName
      *            the name of the bluetooth adapter
      * @return If connection was successful
-     * @since {@link org.eclipse.kura.bluetooth} 1.2.0
+     * @since 1.0.8
      */
     public boolean connect(String adapterName) throws KuraException;
 

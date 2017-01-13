@@ -11,6 +11,12 @@
  *******************************************************************************/
 package org.eclipse.kura.bluetooth.listener;
 
+import org.osgi.annotation.versioning.ProviderType;
+
+/**
+ * @noextend
+ */
+@ProviderType
 public class AdvertisingReportRecord {
 
     private int eventType;

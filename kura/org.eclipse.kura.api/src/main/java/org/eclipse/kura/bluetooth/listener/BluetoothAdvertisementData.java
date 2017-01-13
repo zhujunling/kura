@@ -14,6 +14,12 @@ package org.eclipse.kura.bluetooth.listener;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.osgi.annotation.versioning.ProviderType;
+
+/**
+ * @noextend
+ */
+@ProviderType
 public class BluetoothAdvertisementData {
 
     private byte[] rawData;

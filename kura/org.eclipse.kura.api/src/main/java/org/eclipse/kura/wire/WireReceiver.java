@@ -9,6 +9,7 @@
  *******************************************************************************/
 package org.eclipse.kura.wire;
 
+import org.osgi.annotation.versioning.ConsumerType;
 import org.osgi.service.wireadmin.Consumer;
 
 /**
@@ -16,6 +17,7 @@ import org.osgi.service.wireadmin.Consumer;
  * consumer that can receive produced or emitted values from upstream
  * {@link WireEmitter}.
  */
+@ConsumerType
 public interface WireReceiver extends WireComponent, Consumer {
 
     /**
