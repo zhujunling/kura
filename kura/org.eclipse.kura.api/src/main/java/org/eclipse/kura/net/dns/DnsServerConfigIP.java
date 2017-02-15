@@ -15,6 +15,7 @@ import java.util.Set;
 
 import org.eclipse.kura.net.IPAddress;
 import org.eclipse.kura.net.NetworkPair;
+import org.osgi.annotation.versioning.ProviderType;
 
 /**
  * Base class for DNS proxy configurations
@@ -22,7 +23,10 @@ import org.eclipse.kura.net.NetworkPair;
  * @author eurotech
  *
  * @param <T>
+ * 
+ * @noextend This class is not intended to be subclassed by clients.
  */
+@ProviderType
 public abstract class DnsServerConfigIP<T extends IPAddress> implements DnsServerConfig {
 
     private Set<T> m_forwarders;

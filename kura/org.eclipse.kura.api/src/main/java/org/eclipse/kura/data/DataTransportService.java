@@ -17,6 +17,7 @@ import org.eclipse.kura.KuraNotConnectedException;
 import org.eclipse.kura.KuraTimeoutException;
 import org.eclipse.kura.KuraTooManyInflightMessagesException;
 import org.eclipse.kura.data.transport.listener.DataTransportListener;
+import org.osgi.annotation.versioning.ProviderType;
 
 /**
  * DataTransportService implementations provide the ability of connecting to a
@@ -26,7 +27,10 @@ import org.eclipse.kura.data.transport.listener.DataTransportListener;
  * The <a href="http://www.osgi.org/wiki/uploads/Links/whiteboard.pdf">whiteboard pattern</a>
  * is used to notify the service users about events such as message arrived, connection lost etc.
  * through the {@link DataTransportListener}
+ * 
+ * @noimplement This interface is not intended to be implemented by clients.
  */
+@ProviderType
 public interface DataTransportService {
 
     /**

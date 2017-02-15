@@ -16,9 +16,14 @@ import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
+import org.osgi.annotation.versioning.ProviderType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+/**
+ * @noextend This class is not intended to be subclassed by clients.
+ */
+@ProviderType
 public class KuraRuntimeException extends RuntimeException
 {
 	private static final long serialVersionUID = -7202805328805688329L;

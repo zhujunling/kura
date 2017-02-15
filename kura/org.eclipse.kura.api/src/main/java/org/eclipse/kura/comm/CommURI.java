@@ -15,10 +15,14 @@ import java.net.URISyntaxException;
 
 import javax.comm.SerialPort;
 
+import org.osgi.annotation.versioning.ProviderType;
+
 /**
  * Represents a Uniform Resource Identifier (URI) for a Comm/Serial Port.
- *
+ * 
+ * @noextend This class is not intended to be subclassed by clients.
  */
+@ProviderType
 public class CommURI {
 
     public static final int DATABITS_5 = SerialPort.DATABITS_5;

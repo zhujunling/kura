@@ -13,6 +13,7 @@ package org.eclipse.kura.data.transport.listener;
 
 import org.eclipse.kura.data.DataTransportService;
 import org.eclipse.kura.data.DataTransportToken;
+import org.osgi.annotation.versioning.ConsumerType;
 
 /**
  * Listener interface to be implemented by applications that needs to be notified of events in the
@@ -23,6 +24,7 @@ import org.eclipse.kura.data.DataTransportToken;
  *
  * @since {@link org.eclipse.kura.data.transport.listener} 1.0.0
  */
+@ConsumerType
 public interface DataTransportListener {
 
     /**
