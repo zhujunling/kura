@@ -97,7 +97,8 @@ public class Heater implements ConfigurableComponent, CloudClientListener {
             service = CloudService.class,
             cardinality = ReferenceCardinality.MANDATORY,
             policy = ReferencePolicy.STATIC,
-            unbind = "unsetCloudService"
+            unbind = "unsetCloudService",
+            target = "(kura.service.pid=org.eclipse.kura.cloud.CloudService)"
     )
     public void setCloudService(CloudService cloudService) {
         this.cloudService = cloudService;
@@ -119,7 +120,7 @@ public class Heater implements ConfigurableComponent, CloudClientListener {
 
         this.properties = properties;
         for (String s : properties.keySet()) {
-            logger.info("Activate - " + s + ": " + properties.get(s));
+            logger.info("Activate - {}: {}", s, properties.get(s));
         }
 
         // get the mqtt client for this application
@@ -161,7 +162,7 @@ public class Heater implements ConfigurableComponent, CloudClientListener {
         // store the properties received
         this.properties = properties;
         for (String s : properties.keySet()) {
-            logger.info("Update - " + s + ": " + properties.get(s));
+            logger.info("Update - {}: {}", s, properties.get(s));
         }
 
         // try to kick off a new job
@@ -299,7 +300,7 @@ public class Heater implements ConfigurableComponent, CloudClientListener {
             this.cloudClient.publish(topic, payload, qos, retain);
             logger.info("Published to {} message: {}", topic, payload);
         } catch (Exception e) {
-            logger.error("Cannot publish topic: " + topic, e);
+            logger.error("Cannot publish topic: {}" + topic, e);
         }
     }
 }
