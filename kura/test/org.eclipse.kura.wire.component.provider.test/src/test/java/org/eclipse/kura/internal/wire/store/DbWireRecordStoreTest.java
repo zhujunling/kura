@@ -26,11 +26,10 @@ import java.util.Map;
 import org.eclipse.kura.db.DbService;
 import org.eclipse.kura.type.BooleanValue;
 import org.eclipse.kura.type.ByteArrayValue;
-import org.eclipse.kura.type.ByteValue;
 import org.eclipse.kura.type.DoubleValue;
+import org.eclipse.kura.type.FloatValue;
 import org.eclipse.kura.type.IntegerValue;
 import org.eclipse.kura.type.LongValue;
-import org.eclipse.kura.type.ShortValue;
 import org.eclipse.kura.type.StringValue;
 import org.eclipse.kura.type.TypedValue;
 import org.eclipse.kura.wire.WireEnvelope;
@@ -91,6 +90,10 @@ public class DbWireRecordStoreTest {
         wireRecords.add(record);
         WireEnvelope wireEvelope = new WireEnvelope(emitterPid, wireRecords);
 
+        ResultSet resultSet = connection.prepareStatement("SELECT count(*) FROM " + tableName).executeQuery();
+        resultSet.next();
+        int startCount = resultSet.getInt(1);
+
         // store one record
         store.onWireReceive(wireEvelope);
 
@@ -103,10 +106,10 @@ public class DbWireRecordStoreTest {
         assertTrue("Only one table was expected", tables.isLast());
         assertEquals(tableName, dbTableName);
 
-        ResultSet resultSet = connection.prepareStatement("SELECT count(*) FROM " + tableName).executeQuery();
+        resultSet = connection.prepareStatement("SELECT count(*) FROM " + tableName).executeQuery();
         resultSet.next();
         int count = resultSet.getInt(1);
-        assertEquals("Only 1 record was expected", 1, count);
+        assertEquals("Unexpected number of records in the database.", startCount + 1, count);
 
         resultSet = connection.prepareStatement("SELECT * FROM " + tableName).executeQuery();
         resultSet.next();
@@ -128,16 +131,14 @@ public class DbWireRecordStoreTest {
         recordProps = new HashMap<String, TypedValue<?>>();
         val = new BooleanValue(true);
         recordProps.put("boolkey", val);
-        val = new ByteValue((byte) 0x12);
-        recordProps.put("bytkey", val);
         val = new DoubleValue(1.234);
         recordProps.put("dblkey", val);
         val = new IntegerValue(1234);
         recordProps.put("intkey", val);
         val = new LongValue(1234L);
         recordProps.put("longkey", val);
-        val = new ShortValue((short) 123);
-        recordProps.put("shortkey", val);
+        val = new FloatValue(123.2f);
+        recordProps.put("floatkey", val);
         record = new WireRecord(recordProps);
         wireRecords.add(record);
         store.onWireReceive(wireEvelope); // adds 3, now
@@ -173,8 +174,8 @@ public class DbWireRecordStoreTest {
         Map<String, Object> props = new HashMap<String, Object>();
         String tableName = "STORE_TEST";
         props.put("table.name", tableName);
-        props.put("periodic.cleanup.records.keep", 3);
-        props.put("periodic.cleanup", 2);
+        props.put("cleanup.records.keep", 3);
+        props.put("maximum.table.size", 5);
 
         // init
         store.activate(ctx, props);
@@ -189,35 +190,28 @@ public class DbWireRecordStoreTest {
         WireEnvelope wireEvelope = new WireEnvelope(emitterPid, wireRecords);
 
         // store a few records
-        store.onWireReceive(wireEvelope);
-        store.onWireReceive(wireEvelope);
-        store.onWireReceive(wireEvelope);
-        store.onWireReceive(wireEvelope);
-        store.onWireReceive(wireEvelope);
+        for (int i = 0; i < 3; i++) {
+            store.onWireReceive(wireEvelope);
+        }
+        // wait for the executor to do its duty and DB operation to finish
+        try {
+            Thread.sleep(500);
+        } catch (InterruptedException e) {
+            // OK
+        }
 
         ResultSet resultSet = connection.prepareStatement("SELECT count(*) FROM " + tableName).executeQuery();
         resultSet.next();
         int count = resultSet.getInt(1);
-        assertEquals("Unexpected number of records", 5, count);
-
-        // wait for the executor to do its duty
-        try {
-            Thread.sleep(2500);
-        } catch (InterruptedException e) {
-            // OK
-        }
-
-        resultSet = connection.prepareStatement("SELECT count(*) FROM " + tableName).executeQuery();
-        resultSet.next();
-        count = resultSet.getInt(1);
         assertEquals("Unexpected number of records", 3, count);
 
-        props.put("periodic.cleanup.records.keep", 0);
-        store.updated(props);
-
+        // store a few records
+        for (int i = 0; i < 5; i++) {
+            store.onWireReceive(wireEvelope);
+        }
         // wait for the executor to do its duty and DB operation to finish
         try {
-            Thread.sleep(2500);
+            Thread.sleep(500);
         } catch (InterruptedException e) {
             // OK
         }
@@ -225,7 +219,7 @@ public class DbWireRecordStoreTest {
         resultSet = connection.prepareStatement("SELECT count(*) FROM " + tableName).executeQuery();
         resultSet.next();
         count = resultSet.getInt(1);
-        assertEquals("Unexpected number of records", 0, count);
+        assertEquals("Unexpected number of records", 4, count);
 
         // deinit
         store.deactivate(null);

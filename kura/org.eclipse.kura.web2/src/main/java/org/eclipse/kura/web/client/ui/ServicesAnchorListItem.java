@@ -9,7 +9,7 @@
  * Contributors:
  *  Eurotech
  *  Amit Kumar Mondal
- *  
+ *  Red Hat Inc
  *******************************************************************************/
 package org.eclipse.kura.web.client.ui;
 
@@ -43,14 +43,14 @@ public class ServicesAnchorListItem extends AnchorListItem {
         this.item = service;
         this.instance = this;
 
-        IconType icon = getIcon(this.item.getComponentName());
+        IconType icon = getIcon(item);
         if (icon == null) {
             String imageURL = getImagePath();
             if (imageURL != null) {
                 StringBuilder imageTag = new StringBuilder();
                 imageTag.append("<img src='");
                 imageTag.append(imageURL);
-                imageTag.append("' height='20' width='20'/>");
+                imageTag.append("' height='14' width='14'/>");
                 imageTag.append(" ");
                 imageTag.append(this.item.getComponentName());
                 super.anchor.setHTML(imageTag.toString());
@@ -61,6 +61,11 @@ public class ServicesAnchorListItem extends AnchorListItem {
         } else {
             super.setIcon(icon);
             super.setText(this.item.getComponentName());
+        }
+
+        final String description = service.getComponentDescription();
+        if (description != null && !description.isEmpty()) {
+            super.setTitle(description);
         }
 
         super.addClickHandler(new ClickHandler() {
@@ -123,9 +128,13 @@ public class ServicesAnchorListItem extends AnchorListItem {
         return this.item.getComponentName();
     }
 
-    private IconType getIcon(String name) {
+    private IconType getIcon(GwtConfigComponent item) {
+        final String name = item.getComponentName();
+
         if (name.startsWith("BluetoothService")) {
             return IconType.BTC;
+        } else if (name.startsWith("BrokerInstance")) {
+            return IconType.RSS;
         } else if (name.startsWith("CloudService")) {
             return IconType.CLOUD;
         } else if (name.startsWith("DiagnosticsService")) {
@@ -145,7 +154,7 @@ public class ServicesAnchorListItem extends AnchorListItem {
         } else if (name.startsWith("VpnService")) {
             return IconType.CONNECTDEVELOP;
         } else if (name.startsWith("ProvisioningService")) {
-            return IconType.EXCLAMATION_CIRCLE;
+            return IconType.CLOUD_DOWNLOAD;
         } else if (name.startsWith("CommandPasswordService")) {
             return IconType.CHAIN;
         } else if (name.startsWith("WebConsole")) {
@@ -154,9 +163,26 @@ public class ServicesAnchorListItem extends AnchorListItem {
             return IconType.TERMINAL;
         } else if (name.startsWith("DenaliService")) {
             return IconType.SPINNER;
-        } else {
-            return null;
+        } else if (name.contains("H2Db")) {
+            return IconType.DATABASE;
+        } else if (name.startsWith("DeploymentService")) {
+            return IconType.DOWNLOAD;
+        } else if (name.startsWith("RebootService")) {
+            return IconType.REFRESH;
+        } else if (name.startsWith("VpnClient")) {
+            return IconType.ARROWS_H;
+        } else if (name.startsWith("TerminalClientService")) {
+            return IconType.RANDOM;
+        } else if (name.startsWith("TerminalServerService")) {
+            return IconType.RANDOM;
         }
+
+        final String id = item.getComponentId();
+        if (id.endsWith(".BrokerInstance")) {
+            return IconType.RSS;
+        }
+
+        return null;
     }
 
     private String getImagePath() {

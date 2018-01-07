@@ -13,7 +13,7 @@
  *
  */
 /**
- * @author dwoodard
+ * Contains interface to execute shell commands.
  *
  */
 package org.eclipse.kura.command;

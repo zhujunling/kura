@@ -11,13 +11,13 @@
  *  Amit Kumar Mondal
  *
  *******************************************************************************/
-
 package org.eclipse.kura.wire;
 
 import static java.util.Objects.requireNonNull;
 
 import org.eclipse.kura.annotation.NotThreadSafe;
 import org.eclipse.kura.annotation.Nullable;
+import org.osgi.annotation.versioning.ProviderType;
 import org.osgi.service.wireadmin.Wire;
 import org.osgi.service.wireadmin.WireAdmin;
 
@@ -35,18 +35,17 @@ import org.osgi.service.wireadmin.WireAdmin;
  * @see Wire
  *
  * @noextend This class is not intended to be extended by clients.
+ * @since 1.2
  */
 @NotThreadSafe
+@ProviderType
 public class WireConfiguration {
 
-    /** The Wire Emitter PID. */
     private final String emitterPid;
 
-    /** The Filter. */
     @Nullable
     private String filter;
 
-    /** The Wire Receiver PID. */
     private final String receiverPid;
 
     /** The actual {@link WireAdmin}'s {@link Wire}. */

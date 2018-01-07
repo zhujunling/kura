@@ -16,12 +16,11 @@ package org.eclipse.kura.type;
 /**
  * This contains all the required data type constants required for representing
  * Java data types as {@link TypedValue}
+ * @since 1.2
  */
 public enum DataType {
 
     BOOLEAN,
-
-    BYTE,
 
     BYTE_ARRAY,
 
@@ -31,7 +30,7 @@ public enum DataType {
 
     LONG,
 
-    SHORT,
+    FLOAT,
 
     STRING;
 
@@ -48,17 +47,14 @@ public enum DataType {
         if (INTEGER.name().equalsIgnoreCase(stringDataType)) {
             return INTEGER;
         }
+        if (FLOAT.name().equalsIgnoreCase(stringDataType)) {
+            return FLOAT;
+        }
         if (DOUBLE.name().equalsIgnoreCase(stringDataType)) {
             return DOUBLE;
         }
-        if (SHORT.name().equalsIgnoreCase(stringDataType)) {
-            return SHORT;
-        }
         if (LONG.name().equalsIgnoreCase(stringDataType)) {
             return LONG;
-        }
-        if (BYTE.name().equalsIgnoreCase(stringDataType)) {
-            return BYTE;
         }
         if (BYTE_ARRAY.name().equalsIgnoreCase(stringDataType)) {
             return BYTE_ARRAY;

@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2016 Eurotech and/or its affiliates
+ * Copyright (c) 2011, 2017 Eurotech and/or its affiliates
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -15,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.eclipse.kura.web.client.messages.Messages;
+import org.eclipse.kura.web.client.ui.AlertDialog;
 import org.eclipse.kura.web.client.ui.EntryClassUi;
 import org.eclipse.kura.web.client.ui.Tab;
 import org.eclipse.kura.web.client.util.FailureHandler;
@@ -35,13 +36,10 @@ import org.gwtbootstrap3.client.ui.FormGroup;
 import org.gwtbootstrap3.client.ui.FormLabel;
 import org.gwtbootstrap3.client.ui.ListBox;
 import org.gwtbootstrap3.client.ui.Modal;
-import org.gwtbootstrap3.client.ui.ModalBody;
-import org.gwtbootstrap3.client.ui.ModalFooter;
 import org.gwtbootstrap3.client.ui.TextBox;
 import org.gwtbootstrap3.client.ui.Tooltip;
 import org.gwtbootstrap3.client.ui.constants.ValidationState;
 import org.gwtbootstrap3.client.ui.gwt.CellTable;
-import org.gwtbootstrap3.client.ui.html.Span;
 
 import com.google.gwt.core.client.GWT;
 import com.google.gwt.event.dom.client.BlurEvent;
@@ -56,8 +54,9 @@ import com.google.gwt.user.client.ui.Composite;
 import com.google.gwt.user.client.ui.Widget;
 import com.google.gwt.view.client.ListDataProvider;
 import com.google.gwt.view.client.SingleSelectionModel;
+import com.google.web.bindery.event.shared.HandlerRegistration;
 
-public class PortForwardingTabUi extends Composite implements Tab {
+public class PortForwardingTabUi extends Composite implements Tab, ButtonBar.Listener {
 
     private static PortForwardingTabUiUiBinder uiBinder = GWT.create(PortForwardingTabUiUiBinder.class);
 
@@ -69,57 +68,119 @@ public class PortForwardingTabUi extends Composite implements Tab {
     private final GwtSecurityTokenServiceAsync gwtXSRFService = GWT.create(GwtSecurityTokenService.class);
     private final GwtNetworkServiceAsync gwtNetworkService = GWT.create(GwtNetworkService.class);
 
-    private final ListDataProvider<GwtFirewallPortForwardEntry> portForwardDataProvider = new ListDataProvider<GwtFirewallPortForwardEntry>();
-    final SingleSelectionModel<GwtFirewallPortForwardEntry> selectionModel = new SingleSelectionModel<GwtFirewallPortForwardEntry>();
+    private final ListDataProvider<GwtFirewallPortForwardEntry> portForwardDataProvider = new ListDataProvider<>();
+    final SingleSelectionModel<GwtFirewallPortForwardEntry> selectionModel = new SingleSelectionModel<>();
 
     private GwtFirewallPortForwardEntry newPortForwardEntry;
     private GwtFirewallPortForwardEntry editPortForwardEntry;
 
-    private boolean m_dirty;
+    private boolean dirty;
 
     @UiField
-    Button apply, create, edit, delete;
+    ButtonBar buttonBar;
     @UiField
     Alert notification;
     @UiField
-    CellTable<GwtFirewallPortForwardEntry> portForwardGrid = new CellTable<GwtFirewallPortForwardEntry>();
+    CellTable<GwtFirewallPortForwardEntry> portForwardGrid = new CellTable<>();
 
     @UiField
-    Modal confirm;
-    @UiField
-    ModalBody confirmBody;
-    @UiField
-    ModalFooter confirmFooter;
-
-    @UiField
-    Modal alert;
-    @UiField
-    Span alertBody;
-    @UiField
-    Button yes, no;
+    AlertDialog alertDialog;
 
     @UiField
     Modal portForwardingForm;
+
     @UiField
-    FormLabel labelInput, labelOutput, labelLan, labelProtocol, labelExternal, labelInternal, labelEnable,
-            labelPermitttedNw, labelPermitttedMac, labelSource;
+    FormLabel labelInput;
     @UiField
-    FormGroup groupInput, groupOutput, groupLan, groupExternal, groupInternal, groupPermittedNw, groupPermittedMac,
-            groupSource;
+    FormLabel labelOutput;
     @UiField
-    Tooltip tooltipInput, tooltipOutput, tooltipLan, tooltipProtocol, tooltipExternal, tooltipInternal, tooltipEnable,
-            tooltipPermittedNw, tooltipPermittedMac, tooltipSource;
+    FormLabel labelLan;
     @UiField
-    TextBox input, output, lan, external, internal, permittedNw, permittedMac, source;
+    FormLabel labelProtocol;
     @UiField
-    ListBox protocol, enable;
+    FormLabel labelExternal;
     @UiField
-    Button submit, cancel;
+    FormLabel labelInternal;
+    @UiField
+    FormLabel labelEnable;
+    @UiField
+    FormLabel labelPermitttedNw;
+    @UiField
+    FormLabel labelPermitttedMac;
+    @UiField
+    FormLabel labelSource;
+
+    @UiField
+    FormGroup groupInput;
+    @UiField
+    FormGroup groupOutput;
+    @UiField
+    FormGroup groupLan;
+    @UiField
+    FormGroup groupExternal;
+    @UiField
+    FormGroup groupInternal;
+    @UiField
+    FormGroup groupPermittedNw;
+    @UiField
+    FormGroup groupPermittedMac;
+    @UiField
+    FormGroup groupSource;
+
+    @UiField
+    Tooltip tooltipInput;
+    @UiField
+    Tooltip tooltipOutput;
+    @UiField
+    Tooltip tooltipLan;
+    @UiField
+    Tooltip tooltipProtocol;
+    @UiField
+    Tooltip tooltipExternal;
+    @UiField
+    Tooltip tooltipInternal;
+    @UiField
+    Tooltip tooltipEnable;
+    @UiField
+    Tooltip tooltipPermittedNw;
+    @UiField
+    Tooltip tooltipPermittedMac;
+    @UiField
+    Tooltip tooltipSource;
+
+    @UiField
+    TextBox input;
+    @UiField
+    TextBox output;
+    @UiField
+    TextBox lan;
+    @UiField
+    TextBox external;
+    @UiField
+    TextBox internal;
+    @UiField
+    TextBox permittedNw;
+    @UiField
+    TextBox permittedMac;
+    @UiField
+    TextBox source;
+
+    @UiField
+    ListBox protocol;
+    @UiField
+    ListBox enable;
+
+    @UiField
+    Button submit;
+    @UiField
+    Button cancel;
+
+    private HandlerRegistration modalHideHandlerRegistration;
 
     public PortForwardingTabUi() {
         initWidget(uiBinder.createAndBindUi(this));
 
-        initButtons();
+        this.buttonBar.setListener(this);
         initTable();
         initModal();
     }
@@ -159,7 +220,7 @@ public class PortForwardingTabUi extends Composite implements Tab {
                         }
                         refreshTable();
 
-                        PortForwardingTabUi.this.apply.setEnabled(false);
+                        PortForwardingTabUi.this.buttonBar.setDirty(false);
                         EntryClassUi.hideWaitModal();
                     }
                 });
@@ -170,12 +231,12 @@ public class PortForwardingTabUi extends Composite implements Tab {
 
     @Override
     public boolean isDirty() {
-        return this.m_dirty;
+        return this.dirty;
     }
 
     @Override
     public void setDirty(boolean b) {
-        this.m_dirty = b;
+        this.dirty = b;
     }
 
     @Override
@@ -243,22 +304,8 @@ public class PortForwardingTabUi extends Composite implements Tab {
         };
         col4.setCellStyleNames("status-table-row");
         this.portForwardGrid.addColumn(col4, MSGS.firewallPortForwardProtocol());
-
+        
         TextColumn<GwtFirewallPortForwardEntry> col5 = new TextColumn<GwtFirewallPortForwardEntry>() {
-
-            @Override
-            public String getValue(GwtFirewallPortForwardEntry object) {
-                if (object.getInPort() != null) {
-                    return String.valueOf(object.getInPort());
-                } else {
-                    return "";
-                }
-            }
-        };
-        col5.setCellStyleNames("status-table-row");
-        this.portForwardGrid.addColumn(col5, MSGS.firewallPortForwardInPort());
-
-        TextColumn<GwtFirewallPortForwardEntry> col6 = new TextColumn<GwtFirewallPortForwardEntry>() {
 
             @Override
             public String getValue(GwtFirewallPortForwardEntry object) {
@@ -269,8 +316,22 @@ public class PortForwardingTabUi extends Composite implements Tab {
                 }
             }
         };
+        col5.setCellStyleNames("status-table-row");
+        this.portForwardGrid.addColumn(col5, MSGS.firewallPortForwardOutPort());
+
+        TextColumn<GwtFirewallPortForwardEntry> col6 = new TextColumn<GwtFirewallPortForwardEntry>() {
+
+            @Override
+            public String getValue(GwtFirewallPortForwardEntry object) {
+                if (object.getInPort() != null) {
+                    return String.valueOf(object.getInPort());
+                } else {
+                    return "";
+                }
+            }
+        };
         col6.setCellStyleNames("status-table-row");
-        this.portForwardGrid.addColumn(col6, MSGS.firewallPortForwardOutPort());
+        this.portForwardGrid.addColumn(col6, MSGS.firewallPortForwardInPort());
 
         TextColumn<GwtFirewallPortForwardEntry> col7 = new TextColumn<GwtFirewallPortForwardEntry>() {
 
@@ -348,70 +409,88 @@ public class PortForwardingTabUi extends Composite implements Tab {
         this.portForwardGrid.redraw();
     }
 
-    // Initialize buttons
-    private void initButtons() {
-        initApplyButton();
+    @Override
+    public void onApply() {
+        List<GwtFirewallPortForwardEntry> intermediateList = PortForwardingTabUi.this.portForwardDataProvider.getList();
 
-        initCreateButton();
+        final List<GwtFirewallPortForwardEntry> updatedPortForwardConf = new ArrayList<>();
+        for (GwtFirewallPortForwardEntry entry : intermediateList) {
+            updatedPortForwardConf.add(entry);
+        }
 
-        initEditButton();
-
-        initDeleteButton();
-    }
-
-    private void initDeleteButton() {
-        this.delete.setText(MSGS.deleteButton());
-        this.delete.addClickHandler(new ClickHandler() {
+        EntryClassUi.showWaitModal();
+        PortForwardingTabUi.this.gwtXSRFService.generateSecurityToken(new AsyncCallback<GwtXSRFToken>() {
 
             @Override
-            public void onClick(ClickEvent event) {
-                GwtFirewallPortForwardEntry selection = PortForwardingTabUi.this.selectionModel.getSelectedObject();
+            public void onFailure(Throwable ex) {
+                EntryClassUi.hideWaitModal();
+                FailureHandler.handle(ex);
+            }
 
-                if (selection != null) {
-                    PortForwardingTabUi.this.alert.setTitle(MSGS.confirm());
-                    PortForwardingTabUi.this.alertBody
-                            .setText(MSGS.firewallOpenPortDeleteConfirmation(String.valueOf(selection.getInPort())));
-                    PortForwardingTabUi.this.alert.show();
+            @Override
+            public void onSuccess(GwtXSRFToken token) {
+                PortForwardingTabUi.this.gwtNetworkService.updateDeviceFirewallPortForwards(token,
+                        updatedPortForwardConf, new AsyncCallback<Void>() {
+
+                    @Override
+                    public void onFailure(Throwable ex) {
+                        FailureHandler.handle(ex);
+                        EntryClassUi.hideWaitModal();
+                    }
+
+                    @Override
+                    public void onSuccess(Void result) {
+                        PortForwardingTabUi.this.buttonBar.setDirty(false);
+                        EntryClassUi.hideWaitModal();
+
+                        setDirty(false);
+                    }
+                });
+            }
+        });
+
+    }
+
+    @Override
+    public void onCancel() {
+        PortForwardingTabUi.this.alertDialog.show(MSGS.deviceConfigDirty(), new AlertDialog.Listener() {
+
+            @Override
+            public void onConfirm() {
+                PortForwardingTabUi.this.refresh();
+            }
+        });
+    }
+
+    @Override
+    public void onCreate() {
+        replaceModalHideHandler(new ModalHideHandler() {
+
+            @Override
+            public void onHide(ModalHideEvent evt) {
+                if (PortForwardingTabUi.this.newPortForwardEntry != null
+                        && !duplicateEntry(PortForwardingTabUi.this.newPortForwardEntry)) {
+                    PortForwardingTabUi.this.portForwardDataProvider.getList()
+                            .add(PortForwardingTabUi.this.newPortForwardEntry);
+                    refreshTable();
+                    PortForwardingTabUi.this.buttonBar.setDirty(true);
+                    PortForwardingTabUi.this.newPortForwardEntry = null;
                 }
             }
         });
-        this.yes.setText(MSGS.yesButton());
-        this.no.setText(MSGS.noButton());
-        this.no.addClickHandler(new ClickHandler() {
-
-            @Override
-            public void onClick(ClickEvent event) {
-                PortForwardingTabUi.this.alert.hide();
-            }
-        });
-        this.yes.addClickHandler(new ClickHandler() {
-
-            @Override
-            public void onClick(ClickEvent event) {
-                PortForwardingTabUi.this.alert.hide();
-                PortForwardingTabUi.this.portForwardDataProvider.getList()
-                        .remove(PortForwardingTabUi.this.selectionModel.getSelectedObject());
-                refreshTable();
-                PortForwardingTabUi.this.apply.setEnabled(true);
-                setDirty(true);
-            }
-        });
+        showModal(null);
     }
 
-    private void initEditButton() {
-        this.edit.setText(MSGS.editButton());
-        this.edit.addClickHandler(new ClickHandler() {
+    @Override
+    public void onEdit() {
 
-            @Override
-            public void onClick(ClickEvent event) {
-                GwtFirewallPortForwardEntry selection = PortForwardingTabUi.this.selectionModel.getSelectedObject();
+        GwtFirewallPortForwardEntry selection = PortForwardingTabUi.this.selectionModel.getSelectedObject();
 
-                if (selection != null) {
-                    showModal(selection);
-                }
-            }
-        });
-        this.portForwardingForm.addHideHandler(new ModalHideHandler() {
+        if (selection == null) {
+            return;
+        }
+
+        replaceModalHideHandler(new ModalHideHandler() {
 
             @Override
             public void onHide(ModalHideEvent evt) {
@@ -422,94 +501,43 @@ public class PortForwardingTabUi extends Composite implements Tab {
                         PortForwardingTabUi.this.portForwardDataProvider.getList()
                                 .add(PortForwardingTabUi.this.editPortForwardEntry);
                         PortForwardingTabUi.this.portForwardDataProvider.flush();
-                        PortForwardingTabUi.this.apply.setEnabled(true);
+                        PortForwardingTabUi.this.buttonBar.setDirty(true);
                         PortForwardingTabUi.this.editPortForwardEntry = null;
-                    } else {	// end duplicate
+                    } else {    // end duplicate
                         PortForwardingTabUi.this.portForwardDataProvider.getList().add(oldEntry);
                         PortForwardingTabUi.this.portForwardDataProvider.flush();
                     }
                 }
             }
         });
+
+        showModal(selection);
     }
 
-    private void initCreateButton() {
-        this.create.setText(MSGS.newButton());
-        this.create.addClickHandler(new ClickHandler() {
+    @Override
+    public void onDelete() {
+        GwtFirewallPortForwardEntry selection = PortForwardingTabUi.this.selectionModel.getSelectedObject();
 
-            @Override
-            public void onClick(ClickEvent event) {
-                showModal(null);
-            }
-        });
-        this.portForwardingForm.addHideHandler(new ModalHideHandler() {
+        if (selection == null) {
+            return;
+        }
 
-            @Override
-            public void onHide(ModalHideEvent evt) {
-                if (PortForwardingTabUi.this.newPortForwardEntry != null
-                        && !duplicateEntry(PortForwardingTabUi.this.newPortForwardEntry)) {
-                    PortForwardingTabUi.this.portForwardDataProvider.getList()
-                            .add(PortForwardingTabUi.this.newPortForwardEntry);
-                    refreshTable();
-                    PortForwardingTabUi.this.apply.setEnabled(true);
-                    PortForwardingTabUi.this.newPortForwardEntry = null;
-                }
-            }
-        });
-    }
+        PortForwardingTabUi.this.alertDialog.show(
+                MSGS.firewallOpenPortDeleteConfirmation(String.valueOf(selection.getInPort())),
+                new AlertDialog.Listener() {
 
-    private void initApplyButton() {
-        this.apply.setText(MSGS.firewallApply());
-        this.apply.addClickHandler(new ClickHandler() {
-
-            @Override
-            public void onClick(ClickEvent event) {
-                List<GwtFirewallPortForwardEntry> intermediateList = PortForwardingTabUi.this.portForwardDataProvider
-                        .getList();
-                ArrayList<GwtFirewallPortForwardEntry> tempList = new ArrayList<GwtFirewallPortForwardEntry>();
-                final List<GwtFirewallPortForwardEntry> updatedPortForwardConf = tempList;
-                for (GwtFirewallPortForwardEntry entry : intermediateList) {
-                    tempList.add(entry);
-                }
-
-                if (updatedPortForwardConf != null) {
-                    EntryClassUi.showWaitModal();
-                    PortForwardingTabUi.this.gwtXSRFService.generateSecurityToken(new AsyncCallback<GwtXSRFToken>() {
-
-                        @Override
-                        public void onFailure(Throwable ex) {
-                            EntryClassUi.hideWaitModal();
-                            FailureHandler.handle(ex);
-                        }
-
-                        @Override
-                        public void onSuccess(GwtXSRFToken token) {
-                            PortForwardingTabUi.this.gwtNetworkService.updateDeviceFirewallPortForwards(token,
-                                    updatedPortForwardConf, new AsyncCallback<Void>() {
-
-                                @Override
-                                public void onFailure(Throwable ex) {
-                                    FailureHandler.handle(ex);
-                                    EntryClassUi.hideWaitModal();
-                                }
-
-                                @Override
-                                public void onSuccess(Void result) {
-                                    PortForwardingTabUi.this.apply.setEnabled(false);
-                                    EntryClassUi.hideWaitModal();
-
-                                    setDirty(false);
-                                }
-                            });
-                        }
-                    });
-                }
-            }
-        });
+                    @Override
+                    public void onConfirm() {
+                        PortForwardingTabUi.this.portForwardDataProvider.getList()
+                                .remove(PortForwardingTabUi.this.selectionModel.getSelectedObject());
+                        refreshTable();
+                        PortForwardingTabUi.this.buttonBar.setDirty(true);
+                        setDirty(true);
+                    }
+                });
     }
 
     private void initModal() {
-        initMACConfirmModal();
 
         // handle buttons
         this.cancel.setText(MSGS.cancelButton());
@@ -546,11 +574,11 @@ public class PortForwardingTabUi extends Composite implements Tab {
                 portForwardEntry.setProtocol(PortForwardingTabUi.this.protocol.getSelectedItemText());
                 if (PortForwardingTabUi.this.internal.getText() != null
                         && !"".equals(PortForwardingTabUi.this.internal.getText().trim())) {
-                    portForwardEntry.setInPort(Integer.parseInt(PortForwardingTabUi.this.internal.getText()));
+                    portForwardEntry.setOutPort(Integer.parseInt(PortForwardingTabUi.this.internal.getText()));
                 }
                 if (PortForwardingTabUi.this.external.getText() != null
                         && !"".equals(PortForwardingTabUi.this.external.getText().trim())) {
-                    portForwardEntry.setOutPort(Integer.parseInt(PortForwardingTabUi.this.external.getText()));
+                    portForwardEntry.setInPort(Integer.parseInt(PortForwardingTabUi.this.external.getText()));
                 }
                 portForwardEntry.setMasquerade(PortForwardingTabUi.this.enable.getSelectedItemText());
                 if (PortForwardingTabUi.this.permittedNw.getText() != null
@@ -561,16 +589,10 @@ public class PortForwardingTabUi extends Composite implements Tab {
                 }
                 if (PortForwardingTabUi.this.permittedMac.getText() != null
                         && !"".equals(PortForwardingTabUi.this.permittedMac.getText().trim())) {
-                    PortForwardingTabUi.this.confirmFooter.clear();
-                    PortForwardingTabUi.this.confirmFooter.add(new Button(MSGS.okButton(), new ClickHandler() {
-
-                        @Override
-                        public void onClick(ClickEvent event) {
-                            portForwardEntry.setPermittedMAC(PortForwardingTabUi.this.permittedMac.getText());
-                            PortForwardingTabUi.this.confirm.hide();
-                        }
-                    }));
-                    PortForwardingTabUi.this.confirm.show();
+                    portForwardEntry.setPermittedMAC(PortForwardingTabUi.this.permittedMac.getText());
+                    PortForwardingTabUi.this.alertDialog.setTitle(MSGS.warning());
+                    PortForwardingTabUi.this.alertDialog.show(MSGS.firewallPortForwardFormNotificationMacFiltering(),
+                            null);
                 }
                 if (PortForwardingTabUi.this.source.getText() != null
                         && !"".equals(PortForwardingTabUi.this.source.getText().trim())) {
@@ -618,13 +640,6 @@ public class PortForwardingTabUi extends Composite implements Tab {
 
         this.portForwardingForm.show();
     }// end initModal
-
-    private void initMACConfirmModal() {
-        this.confirm.setTitle(MSGS.firewallPortForwardFormNotification());
-        this.confirmBody.clear();
-        this.confirmBody.add(new Span(MSGS.firewallPortForwardFormNotificationMacFiltering()));
-        this.confirmFooter.clear();
-    }
 
     private void setModalFieldsHandlers() {
         // Set validations
@@ -744,8 +759,8 @@ public class PortForwardingTabUi extends Composite implements Tab {
             this.input.setText(existingEntry.getInboundInterface());
             this.output.setText(existingEntry.getOutboundInterface());
             this.lan.setText(existingEntry.getAddress());
-            this.external.setText(String.valueOf(existingEntry.getOutPort()));
-            this.internal.setText(String.valueOf(existingEntry.getInPort()));
+            this.external.setText(String.valueOf(existingEntry.getInPort()));
+            this.internal.setText(String.valueOf(existingEntry.getOutPort()));
             this.permittedNw.setText(existingEntry.getPermittedNetwork());
             this.permittedMac.setText(existingEntry.getPermittedMAC());
             this.source.setText(existingEntry.getSourcePortRange());
@@ -784,8 +799,8 @@ public class PortForwardingTabUi extends Composite implements Tab {
         this.tooltipOutput.setTitle(MSGS.firewallPortForwardFormOutboundInterfaceToolTip());
         this.tooltipLan.setTitle(MSGS.firewallPortForwardFormLanAddressToolTip());
         this.tooltipProtocol.setTitle(MSGS.firewallPortForwardFormProtocolToolTip());
-        this.tooltipInternal.setTitle(MSGS.firewallPortForwardFormExternalPortToolTip());
-        this.tooltipExternal.setTitle(MSGS.firewallPortForwardFormInternalPortToolTip());
+        this.tooltipInternal.setTitle(MSGS.firewallPortForwardFormInternalPortToolTip());
+        this.tooltipExternal.setTitle(MSGS.firewallPortForwardFormExternalPortToolTip());
         this.tooltipEnable.setTitle(MSGS.firewallPortForwardFormMasqueradingToolTip());
         this.tooltipPermittedNw.setTitle(MSGS.firewallPortForwardFormPermittedNetworkToolTip());
         this.tooltipPermittedMac.setTitle(MSGS.firewallPortForwardFormPermittedMacAddressToolTip());
@@ -808,8 +823,8 @@ public class PortForwardingTabUi extends Composite implements Tab {
         this.labelOutput.setText(MSGS.firewallPortForwardFormOutboundInterface() + "*");
         this.labelLan.setText(MSGS.firewallPortForwardFormAddress() + "*");
         this.labelProtocol.setText(MSGS.firewallPortForwardFormProtocol());
-        this.labelExternal.setText(MSGS.firewallPortForwardFormOutPort());
-        this.labelInternal.setText(MSGS.firewallPortForwardFormInPort());
+        this.labelExternal.setText(MSGS.firewallPortForwardFormInPort());
+        this.labelInternal.setText(MSGS.firewallPortForwardFormOutPort());
         this.labelEnable.setText(MSGS.firewallNatFormMasquerade());
         this.labelPermitttedNw.setText(MSGS.firewallPortForwardFormPermittedNetwork());
         this.labelPermitttedMac.setText(MSGS.firewallPortForwardFormPermittedMac());
@@ -867,5 +882,12 @@ public class PortForwardingTabUi extends Composite implements Tab {
         if (this.external.getText() == null || "".equals(this.external.getText().trim())) {
             this.groupExternal.setValidationState(ValidationState.ERROR);
         }
+    }
+
+    private void replaceModalHideHandler(ModalHideHandler hideHandler) {
+        if (this.modalHideHandlerRegistration != null) {
+            this.modalHideHandlerRegistration.removeHandler();
+        }
+        this.modalHideHandlerRegistration = this.portForwardingForm.addHideHandler(hideHandler);
     }
 }

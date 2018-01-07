@@ -46,6 +46,12 @@ public interface WireMessages {
     @En("Activating Logger Wire Component...Done")
     public String activatingLoggerDone();
 
+    @En("Activating Regex Filter...")
+    public String activatingRegexFilter();
+
+    @En("Activating Regex Filter...Done")
+    public String activatingRegexFilterDone();
+
     @En("Activating DB Wire Record Store...")
     public String activatingStore();
 
@@ -57,6 +63,12 @@ public interface WireMessages {
 
     @En("Activating Timer...Done")
     public String activatingTimerDone();
+
+    @En("Activating Fifo...")
+    public String activatingFifo();
+
+    @En("Activating Fifo...Done")
+    public String activatingFifoDone();
 
     @En("Activating Wire Asset...")
     public String activatingWireAsset();
@@ -85,11 +97,11 @@ public interface WireMessages {
     @En("asset_name")
     public String assetName();
 
-    @En("Asset Records cannot be empty")
-    public String assetRecordsNonEmpty();
+    @En("Channel Records cannot be empty")
+    public String channelRecordsNonEmpty();
 
-    @En("List of Asset Records cannot be null")
-    public String assetRecordsNonNull();
+    @En("List of Channel Records cannot be null")
+    public String channelRecordsNonNull();
 
     @En("Bundle context cannot be null")
     public String bundleContextNonNull();
@@ -214,6 +226,12 @@ public interface WireMessages {
     @En("Deactivating DB Wire Record Store...Done")
     public String deactivatingStoreDone();
 
+    @En("Dectivating Fifo...")
+    public String deactivatingFifo();
+
+    @En("Dectivating Fifo...Done")
+    public String deactivatingFifoDone();
+
     @En("Dectivating Timer...")
     public String deactivatingTimer();
 
@@ -282,6 +300,9 @@ public interface WireMessages {
 
     @En("Error while filtering Wire Records...")
     public String errorFiltering();
+
+    @En("Error while filtering using provided Regular Expression...")
+    public String errorFilteringRegex();
 
     @En("Error while performing read from the Wire Asset...")
     public String errorPerformingRead();
@@ -448,6 +469,12 @@ public interface WireMessages {
     @En("Refreshing string value {0}")
     public String refreshString(String value);
 
+    @En("{0} - Regular Expression Filtering started..")
+    public String regexFilteringStarted(String emitterName);
+
+    @En("{0} - Regular Expression Filtering finished..")
+    public String regexFilteringDone(String emitterName);
+
     @En("Registering Wire Emitter {0}...")
     public String registeringEmitter(String emitterName);
 
@@ -574,11 +601,23 @@ public interface WireMessages {
     @En("Updating Logger Wire Component...Done")
     public String updatingLoggerDone();
 
-    @En("Updating DB Wire Record Store with...")
+    @En("Updating Regex Filter...")
+    public String updatingRegexFilter();
+
+    @En("Updating Regex Filter...Done")
+    public String updatingRegexFilterDone();
+
+    @En("Updating DB Wire Record Store...")
     public String updatingStore();
 
     @En("Updating DB Wire Record Store...Done")
     public String updatingStoreDone();
+
+    @En("Updating Fifo...")
+    public String updatingFifo();
+
+    @En("Updating Fifo...Done")
+    public String updatingFifoDone();
 
     @En("Updating Timer...")
     public String updatingTimer();
@@ -652,4 +691,12 @@ public interface WireMessages {
     @En("Wire supported component cannot be null")
     public String wireSupportedComponentNonNull();
 
+    @En("Unexpected exception while adding new envelope to queue")
+    public String fifoUnexpectedExceptionWhileSubmitting();
+
+    @En("Interrupted while adding new envelope to queue")
+    public String fifoInterruptedWhileSubmitting();
+
+    @En("Unexpected exception while dispatching envelope")
+    public String fifoUnexpectedExceptionWhileDispatching();
 }

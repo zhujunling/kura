@@ -9,10 +9,15 @@
  * Contributors:
  *  Eurotech
  *  Amit Kumar Mondal
- *
+ *  Red Hat Inc
  *******************************************************************************/
 package org.eclipse.kura.web.client.ui;
 
+import static org.eclipse.kura.web.client.util.FilterBuilder.not;
+import static org.eclipse.kura.web.client.util.FilterBuilder.or;
+
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
@@ -26,20 +31,18 @@ import org.eclipse.kura.web.client.ui.Network.NetworkPanelUi;
 import org.eclipse.kura.web.client.ui.Packages.PackagesPanelUi;
 import org.eclipse.kura.web.client.ui.Settings.SettingsPanelUi;
 import org.eclipse.kura.web.client.ui.Status.StatusPanelUi;
+import org.eclipse.kura.web.client.ui.drivers.assets.DriversAndAssetsUi;
 import org.eclipse.kura.web.client.ui.wires.WiresPanelUi;
-import org.eclipse.kura.web.client.util.EventService;
 import org.eclipse.kura.web.client.util.FailureHandler;
-import org.eclipse.kura.web.shared.ForwardedEventTopic;
+import org.eclipse.kura.web.client.util.FilterBuilder;
 import org.eclipse.kura.web.shared.model.GwtConfigComponent;
-import org.eclipse.kura.web.shared.model.GwtEventInfo;
 import org.eclipse.kura.web.shared.model.GwtSession;
 import org.eclipse.kura.web.shared.model.GwtXSRFToken;
 import org.eclipse.kura.web.shared.service.GwtComponentService;
 import org.eclipse.kura.web.shared.service.GwtComponentServiceAsync;
 import org.eclipse.kura.web.shared.service.GwtSecurityTokenService;
 import org.eclipse.kura.web.shared.service.GwtSecurityTokenServiceAsync;
-import org.gwtbootstrap3.client.shared.event.ModalHideEvent;
-import org.gwtbootstrap3.client.shared.event.ModalHideHandler;
+import org.gwtbootstrap3.client.ui.Anchor;
 import org.gwtbootstrap3.client.ui.AnchorListItem;
 import org.gwtbootstrap3.client.ui.Button;
 import org.gwtbootstrap3.client.ui.Column;
@@ -54,6 +57,7 @@ import org.gwtbootstrap3.client.ui.NavPills;
 import org.gwtbootstrap3.client.ui.Panel;
 import org.gwtbootstrap3.client.ui.PanelBody;
 import org.gwtbootstrap3.client.ui.PanelHeader;
+import org.gwtbootstrap3.client.ui.Row;
 import org.gwtbootstrap3.client.ui.TabListItem;
 import org.gwtbootstrap3.client.ui.TextBox;
 import org.gwtbootstrap3.client.ui.constants.IconSize;
@@ -66,7 +70,6 @@ import com.google.gwt.event.dom.client.ClickEvent;
 import com.google.gwt.event.dom.client.ClickHandler;
 import com.google.gwt.event.dom.client.KeyUpEvent;
 import com.google.gwt.event.dom.client.KeyUpHandler;
-import com.google.gwt.logging.client.HasWidgetsLogHandler;
 import com.google.gwt.uibinder.client.UiBinder;
 import com.google.gwt.uibinder.client.UiField;
 import com.google.gwt.user.client.rpc.AsyncCallback;
@@ -88,6 +91,8 @@ public class EntryClassUi extends Composite {
     static Modal errorModal;
     @UiField
     Label footerLeft;
+    @UiField
+    Row footerCenterRow;
     @UiField
     Label footerCenter;
     @UiField
@@ -117,15 +122,21 @@ public class EntryClassUi extends Composite {
     @UiField
     AnchorListItem cloudServices;
     @UiField
+    AnchorListItem driversAndAssetsServices;
+    @UiField
     ScrollPanel servicesPanel;
     @UiField
     TextBox textSearch;
     @UiField
     NavPills servicesMenu;
     @UiField
-    VerticalPanel errorLogArea;
+    Anchor errorStackTraceAreaOneAnchor;
+    @UiField
+    VerticalPanel errorStackTraceAreaOne;
     @UiField
     Modal errorPopup;
+    @UiField
+    Label errorMessage;
     @UiField
     Modal newFactoryComponentModal;
     @UiField
@@ -150,16 +161,22 @@ public class EntryClassUi extends Composite {
     Column sidenav;
     @UiField
     Panel sidenavOverlay;
+    @UiField
+    Label serviceDescription;
 
     private static final Messages MSGS = GWT.create(Messages.class);
     private static final Logger logger = Logger.getLogger(EntryClassUi.class.getSimpleName());
-    private static final Logger errorLogger = Logger.getLogger("ErrorLogger");
     private static final EntryClassUIUiBinder uiBinder = GWT.create(EntryClassUIUiBinder.class);
 
     private static final String SELECT_COMPONENT = MSGS.servicesComponentFactorySelectorIdle();
     private static final String SIDENAV_HIDDEN_STYLE_NAME = "sidenav-hidden";
     private static final String SELECTED_ANCHOR_LIST_ITEM_STYLE_NAME = "selected-item";
     private static final String NOT_SCROLLABLE_STYLE_NAME = "not-scrollable";
+    private static final String SERVICES_FILTER = FilterBuilder.of(not(or("service.pid=*SystemPropertiesService",
+            "service.pid=*NetworkAdminService", "service.pid=*NetworkConfigurationService",
+            "service.pid=*SslManagerService", "service.pid=*FirewallConfigurationService", "service.pid=*WireService",
+            "objectClass=org.eclipse.kura.wire.WireComponent", "objectClass=org.eclipse.kura.driver.Driver",
+            "kura.ui.service.hide=true")));
 
     private static PopupPanel waitModal;
 
@@ -171,6 +188,7 @@ public class EntryClassUi extends Composite {
     private final NetworkPanelUi networkBinder = GWT.create(NetworkPanelUi.class);
     private final CloudServicesUi cloudServicesBinder = GWT.create(CloudServicesUi.class);
     private final WiresPanelUi wiresBinder = GWT.create(WiresPanelUi.class);
+    private final DriversAndAssetsUi driversAndTwinsBinder = GWT.create(DriversAndAssetsUi.class);
 
     private final GwtComponentServiceAsync gwtComponentService = GWT.create(GwtComponentService.class);
     private final GwtSecurityTokenServiceAsync gwtXSRFService = GWT.create(GwtSecurityTokenService.class);
@@ -202,6 +220,8 @@ public class EntryClassUi extends Composite {
         initWidget(uiBinder.createAndBindUi(this));
         initWaitModal();
         initNewComponentErrorModal();
+        initExceptionReportModal();
+        contentPanelHeader.setId("contentPanelHeader");
 
         Date now = new Date();
         @SuppressWarnings("deprecation")
@@ -223,36 +243,13 @@ public class EntryClassUi extends Composite {
             }
         });
 
-        // Set client side logging
-        errorLogger.addHandler(new HasWidgetsLogHandler(this.errorLogArea));
-        this.errorPopup.addHideHandler(new ModalHideHandler() {
-
-            @Override
-            public void onHide(ModalHideEvent evt) {
-                EntryClassUi.this.errorLogArea.clear();
-            }
-        });
-
-        EventService.subscribe(ForwardedEventTopic.CLOUD_CONNECTION_STATUS_ESTABLISHED, new EventService.Handler() {
-
-            @Override
-            public void handleEvent(GwtEventInfo eventInfo) {
-                updateConnectionStatusImage(true);
-            }
-        });
-        EventService.subscribe(ForwardedEventTopic.CLOUD_CONNECTION_STATUS_LOST, new EventService.Handler() {
-
-            @Override
-            public void handleEvent(GwtEventInfo eventInfo) {
-                updateConnectionStatusImage(false);
-            }
-        });
-
-        FailureHandler.setPopup(this.errorPopup);
-
-        showSidenav();
-
         initServicesTree();
+    }
+
+    private void initExceptionReportModal() {
+        this.errorPopup.setTitle(MSGS.warning());
+        this.errorStackTraceAreaOneAnchor.setText(MSGS.showStackTrace());
+        FailureHandler.setPopup(this.errorPopup, this.errorMessage, this.errorStackTraceAreaOne);
     }
 
     public void setSelectedAnchorListItem(AnchorListItem selected) {
@@ -281,24 +278,25 @@ public class EntryClassUi extends Composite {
         this.currentSession = GwtSession;
     }
 
-    public void setFooter(GwtSession GwtSession) {
+    public void setFooter(GwtSession gwtSession) {
 
-        this.footerRight.setText(GwtSession.getKuraVersion());
+        this.footerRight.setText(gwtSession.getKuraVersion());
 
-        if (GwtSession.isDevelopMode()) {
+        this.footerCenterRow.setVisible(false);
+        if (gwtSession.isDevelopMode()) {
             this.footerCenter.setText(MSGS.developmentMode());
+            this.footerCenterRow.setVisible(true);
         }
     }
 
-    public void initSystemPanel(GwtSession GwtSession, boolean connectionStatus) {
+    public void initSystemPanel(GwtSession gwtSession, boolean connectionStatus) {
         final EntryClassUi instanceReference = this;
-        if (!GwtSession.isNetAdminAvailable()) {
+        if (!gwtSession.isNetAdminAvailable()) {
             this.network.setVisible(false);
             this.firewall.setVisible(false);
         }
 
         // Status Panel
-        updateConnectionStatusImage(connectionStatus);
         this.status.addClickHandler(new ClickHandler() {
 
             @Override
@@ -313,7 +311,7 @@ public class EntryClassUi extends Composite {
                         }
                         EntryClassUi.this.setSelectedAnchorListItem(EntryClassUi.this.status);
                         EntryClassUi.this.contentPanel.setVisible(true);
-                        EntryClassUi.this.contentPanelHeader.setText("Status");
+                        setHeader("Status", null);
                         EntryClassUi.this.contentPanelBody.clear();
                         EntryClassUi.this.contentPanelBody.add(EntryClassUi.this.statusBinder);
                         EntryClassUi.this.statusBinder.setSession(EntryClassUi.this.currentSession);
@@ -341,7 +339,7 @@ public class EntryClassUi extends Composite {
                         }
                         EntryClassUi.this.setSelectedAnchorListItem(EntryClassUi.this.device);
                         EntryClassUi.this.contentPanel.setVisible(true);
-                        EntryClassUi.this.contentPanelHeader.setText(MSGS.device());
+                        setHeader(MSGS.device(), null);
                         EntryClassUi.this.contentPanelBody.clear();
                         EntryClassUi.this.contentPanelBody.add(EntryClassUi.this.deviceBinder);
                         EntryClassUi.this.deviceBinder.setSession(EntryClassUi.this.currentSession);
@@ -368,7 +366,7 @@ public class EntryClassUi extends Composite {
                             }
                             EntryClassUi.this.setSelectedAnchorListItem(EntryClassUi.this.network);
                             EntryClassUi.this.contentPanel.setVisible(true);
-                            EntryClassUi.this.contentPanelHeader.setText(MSGS.network());
+                            setHeader(MSGS.network(), null);
                             EntryClassUi.this.contentPanelBody.clear();
                             EntryClassUi.this.contentPanelBody.add(EntryClassUi.this.networkBinder);
                             EntryClassUi.this.networkBinder.setSession(EntryClassUi.this.currentSession);
@@ -396,7 +394,7 @@ public class EntryClassUi extends Composite {
                             }
                             EntryClassUi.this.setSelectedAnchorListItem(EntryClassUi.this.firewall);
                             EntryClassUi.this.contentPanel.setVisible(true);
-                            EntryClassUi.this.contentPanelHeader.setText(MSGS.firewall());
+                            setHeader(MSGS.firewall(), null);
                             EntryClassUi.this.contentPanelBody.clear();
                             EntryClassUi.this.contentPanelBody.add(EntryClassUi.this.firewallBinder);
                             EntryClassUi.this.firewallBinder.initFirewallPanel();
@@ -422,7 +420,7 @@ public class EntryClassUi extends Composite {
                         }
                         EntryClassUi.this.setSelectedAnchorListItem(EntryClassUi.this.packages);
                         EntryClassUi.this.contentPanel.setVisible(true);
-                        EntryClassUi.this.contentPanelHeader.setText(MSGS.packages());
+                        setHeader(MSGS.packages(), null);
                         EntryClassUi.this.contentPanelBody.clear();
                         EntryClassUi.this.contentPanelBody.add(EntryClassUi.this.packagesBinder);
                         EntryClassUi.this.packagesBinder.setSession(EntryClassUi.this.currentSession);
@@ -449,7 +447,7 @@ public class EntryClassUi extends Composite {
                         }
                         EntryClassUi.this.setSelectedAnchorListItem(EntryClassUi.this.settings);
                         EntryClassUi.this.contentPanel.setVisible(true);
-                        EntryClassUi.this.contentPanelHeader.setText(MSGS.settings());
+                        setHeader(MSGS.settings(), null);
                         EntryClassUi.this.contentPanelBody.clear();
                         EntryClassUi.this.contentPanelBody.add(EntryClassUi.this.settingsBinder);
                         EntryClassUi.this.settingsBinder.setSession(EntryClassUi.this.currentSession);
@@ -475,7 +473,7 @@ public class EntryClassUi extends Composite {
                         }
                         EntryClassUi.this.setSelectedAnchorListItem(EntryClassUi.this.cloudServices);
                         EntryClassUi.this.contentPanel.setVisible(true);
-                        EntryClassUi.this.contentPanelHeader.setText(MSGS.cloudServices());
+                        setHeader(MSGS.cloudServices(), null);
                         EntryClassUi.this.contentPanelBody.clear();
                         EntryClassUi.this.contentPanelBody.add(EntryClassUi.this.cloudServicesBinder);
                         EntryClassUi.this.cloudServicesBinder.refresh();
@@ -501,11 +499,37 @@ public class EntryClassUi extends Composite {
                         }
                         EntryClassUi.this.setSelectedAnchorListItem(EntryClassUi.this.wires);
                         EntryClassUi.this.contentPanel.setVisible(true);
-                        EntryClassUi.this.contentPanelHeader.setText(MSGS.wires());
+                        setHeader(MSGS.wires(), null);
                         EntryClassUi.this.contentPanelBody.clear();
                         EntryClassUi.this.contentPanelBody.add(EntryClassUi.this.wiresBinder);
-                        WiresPanelUi.load();
+                        EntryClassUi.this.wiresBinder.load();
                         // EntryClassUi.this.discardWiresPanelChanges();
+                    }
+                });
+                renderDirtyConfigModal(b);
+            }
+        });
+
+        // Drivers and Twins services Panel
+        this.driversAndAssetsServices.addClickHandler(new ClickHandler() {
+
+            @Override
+            public void onClick(ClickEvent event) {
+                Button b = new Button(MSGS.yesButton(), new ClickHandler() {
+
+                    @Override
+                    public void onClick(ClickEvent event) {
+                        forceTabsCleaning();
+                        if (EntryClassUi.this.modal != null) {
+                            EntryClassUi.this.modal.hide();
+                        }
+                        EntryClassUi.this.setSelectedAnchorListItem(EntryClassUi.this.driversAndAssetsServices);
+                        EntryClassUi.this.contentPanel.setVisible(true);
+                        EntryClassUi.this.contentPanelHeader.setText(MSGS.driversAndAssetsServices());
+                        EntryClassUi.this.contentPanelBody.clear();
+                        EntryClassUi.this.contentPanelBody.add(EntryClassUi.this.driversAndTwinsBinder);
+                        EntryClassUi.this.driversAndTwinsBinder.refresh();
+
                     }
                 });
                 renderDirtyConfigModal(b);
@@ -546,7 +570,36 @@ public class EntryClassUi extends Composite {
         }
     }
 
-    public void fetchAvailableServices() {
+    private void sortConfigurationsByName(List<GwtConfigComponent> configs) {
+        Collections.sort(configs, new Comparator<GwtConfigComponent>() {
+
+            @Override
+            public int compare(GwtConfigComponent arg0, GwtConfigComponent arg1) {
+                String name0;
+                String pid0 = arg0.getComponentId();
+                String pid1 = arg1.getComponentId();
+                int start = pid0.lastIndexOf('.');
+                int substringIndex = start + 1;
+                if (start != -1 && substringIndex < pid0.length()) {
+                    name0 = pid0.substring(substringIndex);
+                } else {
+                    name0 = pid0;
+                }
+
+                String name1;
+                start = pid1.lastIndexOf('.');
+                substringIndex = start + 1;
+                if (start != -1 && substringIndex < pid1.length()) {
+                    name1 = pid1.substring(substringIndex);
+                } else {
+                    name1 = pid1;
+                }
+                return name0.compareTo(name1);
+            }
+        });
+    }
+
+    public void fetchAvailableServices(final AsyncCallback<Void> callback) {
         // (Re)Fetch Available Services
         this.gwtXSRFService.generateSecurityToken(new AsyncCallback<GwtXSRFToken>() {
 
@@ -557,27 +610,34 @@ public class EntryClassUi extends Composite {
 
             @Override
             public void onSuccess(GwtXSRFToken token) {
-                EntryClassUi.this.gwtComponentService.findServicesConfigurations(token,
+                EntryClassUi.this.gwtComponentService.findComponentConfigurations(token, SERVICES_FILTER,
                         new AsyncCallback<List<GwtConfigComponent>>() {
 
-                    @Override
-                    public void onFailure(Throwable ex) {
-                        logger.log(Level.SEVERE, ex.getMessage(), ex);
-                        FailureHandler.handle(ex, EntryClassUi.class.getName());
-                    }
-
-                    @Override
-                    public void onSuccess(List<GwtConfigComponent> result) {
-                        EntryClassUi.this.servicesMenu.clear();
-                        for (GwtConfigComponent pair : result) {
-                            if (!pair.isWireComponent()) {
-                                EntryClassUi.this.servicesMenu
-                                        .add(new ServicesAnchorListItem(pair, EntryClassUi.this.ui));
+                            @Override
+                            public void onFailure(Throwable ex) {
+                                logger.log(Level.SEVERE, ex.getMessage(), ex);
+                                FailureHandler.handle(ex, EntryClassUi.class.getName());
+                                if (callback != null) {
+                                    callback.onFailure(ex);
+                                }
                             }
-                        }
-                        filterAvailableServices(EntryClassUi.this.textSearch.getValue());
-                    }
-                });
+
+                            @Override
+                            public void onSuccess(List<GwtConfigComponent> result) {
+                                sortConfigurationsByName(result);
+                                EntryClassUi.this.servicesMenu.clear();
+                                for (GwtConfigComponent pair : result) {
+                                    if (!pair.isWireComponent()) {
+                                        EntryClassUi.this.servicesMenu
+                                                .add(new ServicesAnchorListItem(pair, EntryClassUi.this.ui));
+                                    }
+                                }
+                                filterAvailableServices(EntryClassUi.this.textSearch.getValue());
+                                if (callback != null) {
+                                    callback.onSuccess(null);
+                                }
+                            }
+                        });
             }
         });
     }
@@ -606,22 +666,22 @@ public class EntryClassUi extends Composite {
                         EntryClassUi.this.gwtComponentService.findFactoryComponents(token,
                                 new AsyncCallback<List<String>>() {
 
-                            @Override
-                            public void onFailure(Throwable ex) {
-                                logger.log(Level.SEVERE, ex.getMessage(), ex);
-                                FailureHandler.handle(ex, EntryClassUi.class.getName());
-                            }
+                                    @Override
+                                    public void onFailure(Throwable ex) {
+                                        logger.log(Level.SEVERE, ex.getMessage(), ex);
+                                        FailureHandler.handle(ex, EntryClassUi.class.getName());
+                                    }
 
-                            @Override
-                            public void onSuccess(final List<String> result) {
-                                EntryClassUi.this.factoriesList.clear();
-                                EntryClassUi.this.factoriesList.addItem(SELECT_COMPONENT);
-                                for (final String servicePid : result) {
-                                    EntryClassUi.this.factoriesList.addItem(servicePid);
-                                }
-                                EntryClassUi.this.newFactoryComponentModal.show();
-                            }
-                        });
+                                    @Override
+                                    public void onSuccess(final List<String> result) {
+                                        EntryClassUi.this.factoriesList.clear();
+                                        EntryClassUi.this.factoriesList.addItem(SELECT_COMPONENT);
+                                        for (final String servicePid : result) {
+                                            EntryClassUi.this.factoriesList.addItem(servicePid);
+                                        }
+                                        EntryClassUi.this.newFactoryComponentModal.show();
+                                    }
+                                });
                     }
                 });
             }
@@ -633,7 +693,7 @@ public class EntryClassUi extends Composite {
         this.newFactoryComponentFormLabel.setText(MSGS.servicesComponentFactoryFactory());
         this.componentInstanceNameLabel.setText(MSGS.servicesComponentFactoryName());
         this.componentName.setPlaceholder(MSGS.servicesComponentFactoryNamePlaceholder());
-        this.buttonNewComponent.setText(MSGS.apply());
+        this.buttonNewComponent.setText(MSGS.submitButton());
         this.buttonNewComponentCancel.setText(MSGS.cancelButton());
 
         // New factory configuration handler
@@ -661,21 +721,26 @@ public class EntryClassUi extends Composite {
                         EntryClassUi.this.gwtComponentService.createFactoryComponent(token, factoryPid, pid,
                                 new AsyncCallback<Void>() {
 
-                            @Override
-                            public void onFailure(Throwable ex) {
-                                logger.log(Level.SEVERE, ex.getMessage(), ex);
-                                FailureHandler.handle(ex, EntryClassUi.class.getName());
-                            }
+                                    @Override
+                                    public void onFailure(Throwable ex) {
+                                        logger.log(Level.SEVERE, ex.getMessage(), ex);
+                                        FailureHandler.handle(ex, EntryClassUi.class.getName());
+                                    }
 
-                            @Override
-                            public void onSuccess(Void result) {
-                                fetchAvailableServices();
-                            }
-                        });
+                                    @Override
+                                    public void onSuccess(Void result) {
+                                        fetchAvailableServices(null);
+                                    }
+                                });
                     }
                 });
             }
         });
+    }
+
+    private void setHeader(final String title, final String subTitle) {
+        this.contentPanelHeader.setText(title);
+        this.serviceDescription.setText(subTitle != null ? subTitle : "");
     }
 
     public void render(GwtConfigComponent item) {
@@ -683,38 +748,12 @@ public class EntryClassUi extends Composite {
         this.contentPanelBody.clear();
         this.servicesUi = new ServicesUi(item, this);
         this.contentPanel.setVisible(true);
+
         if (item != null) {
-            this.contentPanelHeader.setText(item.getComponentName());
+            setHeader(item.getComponentName(), item.getComponentDescription());
         }
+
         this.contentPanelBody.add(this.servicesUi);
-    }
-
-    public void updateConnectionStatusImage(boolean isConnected) {
-        String imgColor;
-        String statusMessage;
-
-        if (isConnected) {
-            imgColor = "background-color: #007f00";
-            statusMessage = MSGS.connectionStatusConnected();
-        } else {
-            imgColor = "background-color: #eb3d00";
-            statusMessage = MSGS.connectionStatusDisconnected();
-        }
-
-        StringBuilder imageSB = new StringBuilder();
-        imageSB.append("<i class=\"fa fa-plug fa-fw\" ");
-        imageSB.append(
-                "style=\"float: right; width: 23px; height: 23px; line-height: 23px; color: white; border-radius: 23px; ");
-        imageSB.append(imgColor + "\"");
-        imageSB.append("\" title=\"");
-        imageSB.append(statusMessage);
-        imageSB.append("\"/>");
-
-        String html = this.status.getHTML();
-        String baseStatusHTML = html.substring(0, html.indexOf("Status") + "Status".length());
-        StringBuilder statusHTML = new StringBuilder(baseStatusHTML);
-        statusHTML.append(imageSB.toString());
-        this.status.setHTML(statusHTML.toString());
     }
 
     // create the prompt for dirty configuration before switching to another tab
@@ -723,6 +762,7 @@ public class EntryClassUi extends Composite {
         boolean isUiDirty = isServicesUiDirty() || isNetworkDirty();
         isUiDirty = isUiDirty || isFirewallDirty() || isSettingsDirty();
         isUiDirty = isUiDirty || isCloudServicesDirty() || isWiresDirty();
+        isUiDirty = isUiDirty || isDriversAndTwinsDirty();
 
         if (isUiDirty) {
             this.modal = new Modal();
@@ -801,7 +841,15 @@ public class EntryClassUi extends Composite {
 
     public boolean isWiresDirty() {
         if (this.wires.isVisible()) {
-            return WiresPanelUi.isDirty();
+            return this.wiresBinder.isDirty();
+        } else {
+            return false;
+        }
+    }
+
+    public boolean isDriversAndTwinsDirty() {
+        if (this.driversAndTwinsBinder.isVisible()) {
+            return this.driversAndTwinsBinder.isDirty();
         } else {
             return false;
         }
@@ -820,11 +868,15 @@ public class EntryClassUi extends Composite {
         if (this.settings.isVisible()) {
             this.settingsBinder.setDirty(false);
         }
+        if (this.driversAndTwinsBinder.isVisible()) {
+            this.driversAndTwinsBinder.clearDirtyState();
+        }
     }
 
     private void initWaitModal() {
         waitModal = new PopupPanel(false, true);
         Icon icon = new Icon();
+        icon.setId("cog");
         icon.setType(IconType.COG);
         icon.setSize(IconSize.TIMES4);
         icon.setSpin(true);
@@ -863,8 +915,8 @@ public class EntryClassUi extends Composite {
             this.cloudServicesBinder.setDirty(false);
         }
         if (this.wires.isVisible()) {
-            WiresPanelUi.setDirty(false);
-            WiresPanelUi.unload();
+            this.wiresBinder.clearDirtyState();
+            this.wiresBinder.unload();
         }
     }
 
@@ -874,5 +926,31 @@ public class EntryClassUi extends Composite {
 
     void setSelected(GwtConfigComponent selected) {
         this.selected = selected;
+    }
+
+    public void init() {
+        fetchAvailableServices(new AsyncCallback<Void>() {
+
+            @Override
+            public void onSuccess(Void result) {
+                EntryClassUi.this.showStatusPanel();
+            }
+
+            @Override
+            public void onFailure(Throwable caught) {
+                EntryClassUi.this.showStatusPanel();
+            }
+        });
+    }
+
+    private void showStatusPanel() {
+        this.setSelectedAnchorListItem(this.status);
+        this.contentPanel.setVisible(true);
+        this.contentPanelHeader.setText("Status");
+        this.contentPanelBody.clear();
+        this.contentPanelBody.add(EntryClassUi.this.statusBinder);
+        this.statusBinder.setSession(EntryClassUi.this.currentSession);
+        this.statusBinder.setParent(this);
+        this.statusBinder.loadStatusData();
     }
 }

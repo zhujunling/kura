@@ -20,8 +20,13 @@ import java.io.OutputStream;
 import javax.microedition.io.Connection;
 import javax.microedition.io.ConnectionNotFoundException;
 
+import org.osgi.annotation.versioning.ProviderType;
 import org.osgi.service.io.ConnectorService;
 
+/**
+ * @noimplement This interface is not intended to be implemented by clients.
+ */
+@ProviderType
 public interface BluetoothConnector extends ConnectorService {
 
     /**
@@ -57,6 +62,7 @@ public interface BluetoothConnector extends ConnectorService {
      * @throws SecurityException
      *             If a requested protocol handler is not permitted.
      */
+    @Deprecated
     @Override
     public Connection open(String name) throws IOException;
 
@@ -80,6 +86,7 @@ public interface BluetoothConnector extends ConnectorService {
      * @throws SecurityException
      *             If a requested protocol handler is not permitted.
      */
+    @Deprecated
     @Override
     public Connection open(String name, int mode) throws IOException;
 
@@ -105,6 +112,7 @@ public interface BluetoothConnector extends ConnectorService {
      * @throws SecurityException
      *             If a requested protocol handler is not permitted.
      */
+    @Deprecated
     @Override
     public Connection open(String name, int mode, boolean timeouts) throws IOException;
 
@@ -124,6 +132,7 @@ public interface BluetoothConnector extends ConnectorService {
      * @throws SecurityException
      *             If access to the requested stream is not permitted.
      */
+    @Deprecated
     @Override
     public DataInputStream openDataInputStream(String name) throws IOException;
 
@@ -143,6 +152,7 @@ public interface BluetoothConnector extends ConnectorService {
      * @throws SecurityException
      *             If access to the requested stream is not permitted.
      */
+    @Deprecated
     @Override
     public DataOutputStream openDataOutputStream(String name) throws IOException;
 
@@ -162,6 +172,7 @@ public interface BluetoothConnector extends ConnectorService {
      * @throws SecurityException
      *             If access to the requested stream is not permitted.
      */
+    @Deprecated
     @Override
     public InputStream openInputStream(String name) throws IOException;
 
@@ -181,6 +192,7 @@ public interface BluetoothConnector extends ConnectorService {
      * @throws SecurityException
      *             If access to the requested stream is not permitted.
      */
+    @Deprecated
     @Override
     public OutputStream openOutputStream(String name) throws IOException;
 

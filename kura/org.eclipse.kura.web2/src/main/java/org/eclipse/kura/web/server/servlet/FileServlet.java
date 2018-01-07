@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2016 Eurotech and/or its affiliates
+ * Copyright (c) 2011, 2017 Eurotech and/or its affiliates
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -42,13 +42,16 @@ import org.apache.commons.fileupload.servlet.FileCleanerCleanup;
 import org.apache.commons.fileupload.servlet.ServletFileUpload;
 import org.apache.commons.io.FileCleaningTracker;
 import org.apache.commons.io.IOUtils;
+import org.eclipse.kura.KuraErrorCode;
+import org.eclipse.kura.KuraException;
 import org.eclipse.kura.configuration.ComponentConfiguration;
 import org.eclipse.kura.configuration.ConfigurationService;
-import org.eclipse.kura.core.configuration.ComponentConfigurationImpl;
 import org.eclipse.kura.core.configuration.XmlComponentConfigurations;
-import org.eclipse.kura.core.configuration.util.XmlUtil;
 import org.eclipse.kura.deployment.agent.DeploymentAgentService;
+import org.eclipse.kura.marshalling.Marshaller;
+import org.eclipse.kura.marshalling.Unmarshaller;
 import org.eclipse.kura.system.SystemService;
+import org.eclipse.kura.util.service.ServiceUtil;
 import org.eclipse.kura.web.Console;
 import org.eclipse.kura.web.server.KuraRemoteServiceServlet;
 import org.eclipse.kura.web.server.util.ServiceLocator;
@@ -57,6 +60,8 @@ import org.eclipse.kura.web.shared.GwtKuraException;
 import org.eclipse.kura.web.shared.model.GwtXSRFToken;
 import org.osgi.framework.Bundle;
 import org.osgi.framework.BundleContext;
+import org.osgi.framework.FrameworkUtil;
+import org.osgi.framework.ServiceReference;
 import org.osgi.service.metatype.MetaTypeInformation;
 import org.osgi.service.metatype.MetaTypeService;
 import org.slf4j.Logger;
@@ -66,7 +71,7 @@ public class FileServlet extends HttpServlet {
 
     private static final long serialVersionUID = -5016170117606322129L;
 
-    private static Logger s_logger = LoggerFactory.getLogger(FileServlet.class);
+    private static Logger logger = LoggerFactory.getLogger(FileServlet.class);
 
     private static final int BUFFER = 1024;
     private static int tooBig = 0x6400000; // Max size of unzipped data, 100MB
@@ -79,10 +84,10 @@ public class FileServlet extends HttpServlet {
     public void destroy() {
         super.destroy();
 
-        s_logger.info("Servlet {} destroyed", getServletName());
+        logger.info("Servlet {} destroyed", getServletName());
 
         if (this.m_fileCleaningTracker != null) {
-            s_logger.info("Number of temporary files tracked: " + this.m_fileCleaningTracker.getTrackCount());
+            logger.info("Number of temporary files tracked: " + this.m_fileCleaningTracker.getTrackCount());
         }
     }
 
@@ -90,7 +95,7 @@ public class FileServlet extends HttpServlet {
     public void init() throws ServletException {
         super.init();
 
-        s_logger.info("Servlet {} initialized", getServletName());
+        logger.info("Servlet {} initialized", getServletName());
 
         ServletContext ctx = getServletContext();
         this.m_fileCleaningTracker = FileCleanerCleanup.getFileCleaningTracker(ctx);
@@ -101,8 +106,8 @@ public class FileServlet extends HttpServlet {
         int sizeThreshold = getFileUploadInMemorySizeThreshold();
         File repository = new File(System.getProperty("java.io.tmpdir"));
 
-        s_logger.info("DiskFileItemFactory.DEFAULT_SIZE_THRESHOLD: {}", DiskFileItemFactory.DEFAULT_SIZE_THRESHOLD);
-        s_logger.info("DiskFileItemFactory: using size threshold of: {}", sizeThreshold);
+        logger.info("DiskFileItemFactory.DEFAULT_SIZE_THRESHOLD: {}", DiskFileItemFactory.DEFAULT_SIZE_THRESHOLD);
+        logger.info("DiskFileItemFactory: using size threshold of: {}", sizeThreshold);
 
         this.m_diskFileItemFactory = new DiskFileItemFactory(sizeThreshold, repository);
         this.m_diskFileItemFactory.setFileCleaningTracker(this.m_fileCleaningTracker);
@@ -115,18 +120,18 @@ public class FileServlet extends HttpServlet {
         String reqPathInfo = req.getPathInfo();
 
         if (reqPathInfo == null) {
-            s_logger.error("Request path info not found");
+            logger.error("Request path info not found");
             throw new ServletException("Request path info not found");
         }
 
-        s_logger.debug("req.getRequestURI(): {}", req.getRequestURI());
-        s_logger.debug("req.getRequestURL(): {}", req.getRequestURL());
-        s_logger.debug("req.getPathInfo(): {}", req.getPathInfo());
+        logger.debug("req.getRequestURI(): {}", req.getRequestURI());
+        logger.debug("req.getRequestURL(): {}", req.getRequestURL());
+        logger.debug("req.getPathInfo(): {}", req.getPathInfo());
 
         if (reqPathInfo.startsWith("/icon")) {
             doGetIcon(req, resp);
         } else {
-            s_logger.error("Unknown request path info: " + reqPathInfo);
+            logger.error("Unknown request path info: " + reqPathInfo);
             throw new ServletException("Unknown request path info: " + reqPathInfo);
         }
     }
@@ -138,13 +143,13 @@ public class FileServlet extends HttpServlet {
 
         String reqPathInfo = req.getPathInfo();
         if (reqPathInfo == null) {
-            s_logger.error("Request path info not found");
+            logger.error("Request path info not found");
             throw new ServletException("Request path info not found");
         }
 
-        s_logger.debug("req.getRequestURI(): {}", req.getRequestURI());
-        s_logger.debug("req.getRequestURL(): {}", req.getRequestURL());
-        s_logger.debug("req.getPathInfo(): {}", req.getPathInfo());
+        logger.debug("req.getRequestURI(): {}", req.getRequestURI());
+        logger.debug("req.getRequestURL(): {}", req.getRequestURL());
+        logger.debug("req.getPathInfo(): {}", req.getPathInfo());
 
         if (reqPathInfo.startsWith("/deploy")) {
             doPostDeploy(req, resp);
@@ -155,7 +160,7 @@ public class FileServlet extends HttpServlet {
         } else if (reqPathInfo.equals("/certificate")) {
             return;
         } else {
-            s_logger.error("Unknown request path info: " + reqPathInfo);
+            logger.error("Unknown request path info: " + reqPathInfo);
             throw new ServletException("Unknown request path info: " + reqPathInfo);
         }
     }
@@ -164,7 +169,7 @@ public class FileServlet extends HttpServlet {
         String queryString = req.getQueryString();
 
         if (queryString == null) {
-            s_logger.error("Error parsing query string.");
+            logger.error("Error parsing query string.");
             throw new ServletException("Error parsing query string.");
         }
 
@@ -173,13 +178,13 @@ public class FileServlet extends HttpServlet {
         try {
             pairs = parseQueryString(queryString);
         } catch (UnsupportedEncodingException e) {
-            s_logger.error("Error parsing query string.");
+            logger.error("Error parsing query string.");
             throw new ServletException("Error parsing query string: " + e.getLocalizedMessage());
         }
 
         // Check for malformed request
         if (pairs == null || pairs.size() != 1) {
-            s_logger.error("Error parsing query string.");
+            logger.error("Error parsing query string.");
             throw new ServletException("Error parsing query string.");
         }
 
@@ -195,7 +200,7 @@ public class FileServlet extends HttpServlet {
                 try {
                     mts = locator.getService(MetaTypeService.class);
                 } catch (GwtKuraException e1) {
-                    s_logger.error("Error parsing query string.");
+                    logger.error("Error parsing query string.");
                     throw new ServletException("Error parsing query string.");
                 }
                 MetaTypeInformation mti = mts.getMetaTypeInformation(b);
@@ -209,7 +214,7 @@ public class FileServlet extends HttpServlet {
                         try {
                             InputStream is = mti.getObjectClassDefinition(pid, null).getIcon(32);
                             if (is == null) {
-                                s_logger.error("Error reading icon file.");
+                                logger.error("Error reading icon file.");
                                 throw new ServletException("Error reading icon file.");
                             }
                             OutputStream os = resp.getOutputStream();
@@ -221,21 +226,21 @@ public class FileServlet extends HttpServlet {
                             os.close();
 
                         } catch (IOException e) {
-                            s_logger.error("Error reading icon file.");
+                            logger.error("Error reading icon file.");
                             throw new IOException("Error reading icon file.");
                         }
                     }
                 }
             }
         } else {
-            s_logger.error("Error parsing query string.");
+            logger.error("Error parsing query string.");
             throw new ServletException("Error parsing query string.");
         }
 
     }
 
     private Map<String, String> parseQueryString(String queryString) throws UnsupportedEncodingException {
-        Map<String, String> qp = new HashMap<String, String>();
+        Map<String, String> qp = new HashMap<>();
 
         String[] pairs = queryString.split("&");
         for (String p : pairs) {
@@ -252,7 +257,7 @@ public class FileServlet extends HttpServlet {
         try {
             upload.parse(req);
         } catch (FileUploadException e) {
-            s_logger.error("Error parsing the file upload request");
+            logger.error("Error parsing the file upload request");
             throw new ServletException("Error parsing the file upload request", e);
         }
 
@@ -334,14 +339,14 @@ public class FileServlet extends HttpServlet {
                 try {
                     os.close();
                 } catch (IOException e) {
-                    s_logger.warn("Cannot close output stream", e);
+                    logger.warn("Cannot close output stream", e);
                 }
             }
             if (is != null) {
                 try {
                     is.close();
                 } catch (IOException e) {
-                    s_logger.warn("Cannot close input stream", e);
+                    logger.warn("Cannot close input stream", e);
                 }
             }
             if (fileItems != null) {
@@ -374,7 +379,7 @@ public class FileServlet extends HttpServlet {
         try {
             upload.parse(req);
         } catch (FileUploadException e) {
-            s_logger.error("Error parsing the file upload request");
+            logger.error("Error parsing the file upload request");
             throw new ServletException("Error parsing the file upload request", e);
         }
 
@@ -391,7 +396,7 @@ public class FileServlet extends HttpServlet {
 
         List<FileItem> fileItems = upload.getFileItems();
         if (fileItems.size() != 1) {
-            s_logger.error("expected 1 file item but found {}", fileItems.size());
+            logger.error("expected 1 file item but found {}", fileItems.size());
             throw new ServletException("Wrong number of file items");
         }
 
@@ -400,9 +405,9 @@ public class FileServlet extends HttpServlet {
         String xmlString = new String(data, "UTF-8");
         XmlComponentConfigurations xmlConfigs;
         try {
-            xmlConfigs = XmlUtil.unmarshal(xmlString, XmlComponentConfigurations.class);
+            xmlConfigs = unmarshal(xmlString, XmlComponentConfigurations.class);
         } catch (Exception e) {
-            s_logger.error("Error unmarshaling device configuration", e);
+            logger.error("Error unmarshaling device configuration", e);
             throw new ServletException("Error unmarshaling device configuration", e);
         }
 
@@ -410,9 +415,9 @@ public class FileServlet extends HttpServlet {
         try {
 
             ConfigurationService cs = locator.getService(ConfigurationService.class);
-            List<ComponentConfigurationImpl> configImpls = xmlConfigs.getConfigurations();
+            List<ComponentConfiguration> configImpls = xmlConfigs.getConfigurations();
 
-            List<ComponentConfiguration> configs = new ArrayList<ComponentConfiguration>();
+            List<ComponentConfiguration> configs = new ArrayList<>();
             configs.addAll(configImpls);
 
             cs.updateConfigurations(configs);
@@ -427,7 +432,7 @@ public class FileServlet extends HttpServlet {
                 Thread.sleep(delay);
             }
         } catch (Exception e) {
-            s_logger.error("Error updating device configuration: {}", e);
+            logger.error("Error updating device configuration: {}", e);
             throw new ServletException("Error updating device configuration", e);
         }
     }
@@ -439,14 +444,14 @@ public class FileServlet extends HttpServlet {
         try {
             deploymentAgentService = locator.getService(DeploymentAgentService.class);
         } catch (GwtKuraException e) {
-            s_logger.error("Error locating DeploymentAgentService", e);
+            logger.error("Error locating DeploymentAgentService", e);
             throw new ServletException("Error locating DeploymentAgentService", e);
         }
 
         // Check that we have a file upload request
         boolean isMultipart = ServletFileUpload.isMultipartContent(req);
         if (!isMultipart) {
-            s_logger.error("Not a file upload request");
+            logger.error("Not a file upload request");
             throw new ServletException("Not a file upload request");
         }
 
@@ -455,7 +460,7 @@ public class FileServlet extends HttpServlet {
         try {
             upload.parse(req);
         } catch (FileUploadException e) {
-            s_logger.error("Error parsing the file upload request", e);
+            logger.error("Error parsing the file upload request", e);
             throw new ServletException("Error parsing the file upload request", e);
         }
 
@@ -480,7 +485,7 @@ public class FileServlet extends HttpServlet {
             fileItems = upload.getFileItems();
 
             if (fileItems.size() != 1) {
-                s_logger.error("expected 1 file item but found {}", fileItems.size());
+                logger.error("expected 1 file item but found {}", fileItems.size());
                 throw new ServletException("Wrong number of file items");
             }
 
@@ -493,7 +498,7 @@ public class FileServlet extends HttpServlet {
             localFile = new File(filePath);
             if (localFile.exists()) {
                 if (localFile.delete()) {
-                    s_logger.error("Cannot delete file: {}", filePath);
+                    logger.error("Cannot delete file: {}", filePath);
                     throw new ServletException("Cannot delete file: " + filePath);
                 }
             }
@@ -502,41 +507,41 @@ public class FileServlet extends HttpServlet {
                 localFile.createNewFile();
                 localFile.deleteOnExit();
             } catch (IOException e) {
-                s_logger.error("Cannot create file: {}", filePath, e);
+                logger.error("Cannot create file: {}", filePath, e);
                 throw new ServletException("Cannot create file: " + filePath);
             }
 
             try {
                 os = new FileOutputStream(localFile);
             } catch (FileNotFoundException e) {
-                s_logger.error("Cannot find file: {}", filePath, e);
+                logger.error("Cannot find file: {}", filePath, e);
                 throw new ServletException("Cannot find file: " + filePath, e);
             }
 
-            s_logger.info("Copying uploaded package file to file: {}", filePath);
+            logger.info("Copying uploaded package file to file: {}", filePath);
 
             try {
                 IOUtils.copy(is, os);
             } catch (IOException e) {
-                s_logger.error("Failed to copy deployment package file: {}", filename, e);
+                logger.error("Failed to copy deployment package file: {}", filename, e);
                 throw new ServletException("Failed to copy deployment package file: " + filename, e);
             }
 
             try {
                 os.close();
             } catch (IOException e) {
-                s_logger.warn("Cannot close output stream", e);
+                logger.warn("Cannot close output stream", e);
             }
 
             URL url = localFile.toURI().toURL();
             String sUrl = url.toString();
 
-            s_logger.info("Installing package...");
+            logger.info("Installing package...");
             try {
                 deploymentAgentService.installDeploymentPackageAsync(sUrl);
                 successful = true;
             } catch (Exception e) {
-                s_logger.error("Package installation failed", e);
+                logger.error("Package installation failed", e);
                 throw new ServletException("Package installation failed", e);
             }
         } catch (IOException e) {
@@ -548,21 +553,21 @@ public class FileServlet extends HttpServlet {
                 try {
                     os.close();
                 } catch (IOException e) {
-                    s_logger.warn("Cannot close output stream", e);
+                    logger.warn("Cannot close output stream", e);
                 }
             }
             if (localFile != null && !successful) {
                 try {
                     localFile.delete();
                 } catch (Exception e) {
-                    s_logger.warn("Cannot delete file");
+                    logger.warn("Cannot delete file");
                 }
             }
             if (is != null) {
                 try {
                     is.close();
                 } catch (IOException e) {
-                    s_logger.warn("Cannot close input stream", e);
+                    logger.warn("Cannot close input stream", e);
                 }
             }
             if (fileItems != null) {
@@ -580,7 +585,7 @@ public class FileServlet extends HttpServlet {
         try {
             deploymentAgentService = locator.getService(DeploymentAgentService.class);
         } catch (GwtKuraException e) {
-            s_logger.error("Error locating DeploymentAgentService", e);
+            logger.error("Error locating DeploymentAgentService", e);
             throw new ServletException("Error locating DeploymentAgentService", e);
         }
 
@@ -589,7 +594,7 @@ public class FileServlet extends HttpServlet {
 
             String packageDownloadUrl = req.getParameter("packageUrl");
             if (packageDownloadUrl == null) {
-                s_logger.error("Deployment package URL parameter missing");
+                logger.error("Deployment package URL parameter missing");
                 throw new ServletException("Deployment package URL parameter missing");
             }
 
@@ -605,16 +610,16 @@ public class FileServlet extends HttpServlet {
             // END XSRF security check
 
             try {
-                s_logger.info("Installing package...");
+                logger.info("Installing package...");
                 deploymentAgentService.installDeploymentPackageAsync(packageDownloadUrl);
             } catch (Exception e) {
-                s_logger.error("Failed to install package at URL {}", packageDownloadUrl, e);
+                logger.error("Failed to install package at URL {}", packageDownloadUrl, e);
                 throw new ServletException("Error installing deployment package", e);
             }
         } else if (reqPathInfo.endsWith("upload")) {
             doPostDeployUpload(req, resp);
         } else {
-            s_logger.error("Unsupported package deployment request");
+            logger.error("Unsupported package deployment request");
             throw new ServletException("Unsupported package deployment request");
         }
     }
@@ -627,7 +632,7 @@ public class FileServlet extends HttpServlet {
             int sizeInBytes = sizeInMB * 1024 * 1024;
             tooBig = sizeInBytes;
         } catch (GwtKuraException e) {
-            s_logger.error("Error locating SystemService", e);
+            logger.error("Error locating SystemService", e);
         }
     }
 
@@ -637,7 +642,7 @@ public class FileServlet extends HttpServlet {
             SystemService systemService = locator.getService(SystemService.class);
             tooMany = systemService.getFileCommandZipMaxUploadNumber();
         } catch (GwtKuraException e) {
-            s_logger.error("Error locating SystemService", e);
+            logger.error("Error locating SystemService", e);
         }
     }
 
@@ -649,7 +654,7 @@ public class FileServlet extends HttpServlet {
             SystemService systemService = locator.getService(SystemService.class);
             sizeMax = Long.parseLong(systemService.getProperties().getProperty("file.upload.size.max", "-1"));
         } catch (GwtKuraException e) {
-            s_logger.error("Error locating SystemService", e);
+            logger.error("Error locating SystemService", e);
         }
 
         return sizeMax;
@@ -665,10 +670,39 @@ public class FileServlet extends HttpServlet {
                     .parseInt(systemService.getProperties().getProperty("file.upload.in.memory.size.threshold",
                             String.valueOf(DiskFileItemFactory.DEFAULT_SIZE_THRESHOLD)));
         } catch (GwtKuraException e) {
-            s_logger.error("Error locating SystemService", e);
+            logger.error("Error locating SystemService", e);
         }
 
         return sizeThreshold;
+    }
+
+    private ServiceReference<Unmarshaller>[] getXmlUnmarshallers() {
+        String filterString = String.format("(&(kura.service.pid=%s))",
+                "org.eclipse.kura.xml.marshaller.unmarshaller.provider");
+        return ServiceUtil.getServiceReferences(FrameworkUtil.getBundle(FileServlet.class).getBundleContext(), Unmarshaller.class, filterString);
+    }
+
+    private void ungetServiceReferences(final ServiceReference<?>[] refs) {
+        ServiceUtil.ungetServiceReferences(FrameworkUtil.getBundle(FileServlet.class).getBundleContext(), refs);
+    }
+
+    protected <T> T unmarshal(String xmlString, Class<T> clazz) throws KuraException {
+        T result = null;
+        ServiceReference<Unmarshaller>[] unmarshallerSRs = getXmlUnmarshallers();
+        try {
+            for (final ServiceReference<Unmarshaller> unmarshallerSR : unmarshallerSRs) {
+                Unmarshaller unmarshaller = FrameworkUtil.getBundle(FileServlet.class).getBundleContext().getService(unmarshallerSR);
+                result = unmarshaller.unmarshal(xmlString, clazz);
+            }
+        } catch (Exception e) {
+            logger.warn("Failed to extract persisted configuration.");
+        } finally {
+            ungetServiceReferences(unmarshallerSRs);
+        }
+        if (result == null) {
+            throw new KuraException(KuraErrorCode.DECODER_ERROR);
+        }
+        return result;
     }
 }
 
@@ -682,8 +716,8 @@ class UploadRequest extends ServletFileUpload {
     public UploadRequest(DiskFileItemFactory diskFileItemFactory) {
         super(diskFileItemFactory);
         setSizeMax(FileServlet.getFileUploadSizeMax());
-        this.formFields = new HashMap<String, String>();
-        this.fileItems = new ArrayList<FileItem>();
+        this.formFields = new HashMap<>();
+        this.fileItems = new ArrayList<>();
     }
 
     @SuppressWarnings("unchecked")

@@ -5,11 +5,11 @@
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/legal/epl-v10.html
- * 
+ *
  * Contributors:
  *  Eurotech
  *  Amit Kumar Mondal
- *  
+ *
  *******************************************************************************/
 package org.eclipse.kura.web.client.ui.wires;
 
@@ -23,15 +23,17 @@ import com.google.gwt.event.dom.client.ClickHandler;
 
 public class WireComponentsAnchorListItem extends AnchorListItem {
 
-    private boolean isEmitter;
-    private boolean isReceiver;
+    private final boolean isEmitter;
+    private final boolean isReceiver;
+    private Listener listener;
 
-    public WireComponentsAnchorListItem(final String factoryPid, final boolean isEmitter, final boolean isReceiver) {
+    public WireComponentsAnchorListItem(final String label, final String factoryPid, final boolean isEmitter,
+            final boolean isReceiver) {
         super();
         this.isEmitter = isEmitter;
         this.isReceiver = isReceiver;
-        super.setIcon(this.getFactoryIcon());
-        super.setText(WiresPanelUi.getFormattedPid(factoryPid));
+        super.setIcon(getFactoryIcon());
+        super.setText(label);
 
         DragSupport drag = DragSupport.addIfSupported(this);
 
@@ -40,7 +42,7 @@ public class WireComponentsAnchorListItem extends AnchorListItem {
 
                 @Override
                 public void onDragStart(DragEvent event) {
-                    event.setData("text/plain", WiresPanelUi.FACTORY_PID_DROP_PREFIX + factoryPid);
+                    event.setTextData(WiresPanelUi.FACTORY_PID_DROP_PREFIX + factoryPid);
                 }
             });
         }
@@ -49,8 +51,9 @@ public class WireComponentsAnchorListItem extends AnchorListItem {
 
             @Override
             public void onClick(final ClickEvent event) {
-                WiresPanelUi.showComponentCreationDialog(factoryPid);
-                WireComponentsAnchorListItem.this.setActive(true);
+                if (listener != null) {
+                    listener.onClick(factoryPid);
+                }
             }
         });
     }
@@ -63,5 +66,14 @@ public class WireComponentsAnchorListItem extends AnchorListItem {
             return IconType.LONG_ARROW_LEFT;
         }
         return IconType.LONG_ARROW_RIGHT;
+    }
+
+    public void setListener(Listener listener) {
+        this.listener = listener;
+    }
+
+    public interface Listener {
+
+        public void onClick(String factoryPid);
     }
 }

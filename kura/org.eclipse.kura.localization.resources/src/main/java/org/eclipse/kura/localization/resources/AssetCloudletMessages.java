@@ -40,11 +40,11 @@ public interface AssetCloudletMessages {
     @En("Asset PID cannot be null")
     public String assetPidNonNull();
 
-    @En("Asset Record cannot be null")
-    public String assetRecordNonNull();
+    @En("Channel Record cannot be null")
+    public String channelRecordNonNull();
 
-    @En("List of asset records cannot be null")
-    public String assetRecordsNonNull();
+    @En("List of channel records cannot be null")
+    public String channelRecordsNonNull();
 
     @En("Asset has been removed by Asset Cloudlet Tracker....")
     public String assetRemoved();
@@ -55,38 +55,23 @@ public interface AssetCloudletMessages {
     @En("Bundle context cannot be null")
     public String bundleContextNonNull();
 
-    @En("name")
-    public String channel();
-
-    @En("Channel ID must be provided as an integer")
-    public String channelAsInteger();
-
-    @En("Channel IDs cannot be null")
-    public String channelIdNonNull();
+    @En("Channel Name cannot be null")
+    public String channelNameNonNull();
 
     @En("Channel cannot be null")
     public String channelNonNull();
 
-    @En("List of channel IDs cannot be empty")
+    @En("List of channel Names cannot be empty")
     public String channelsNonEmpty();
 
-    @En("List of channel IDs cannot be null")
+    @En("List of channel Names cannot be null")
     public String channelsNonNull();
 
-    @En("Cloudlet GET Request received on the Asset Cloudlet")
+    @En("Cloudlet GET Request received on the Asset Cloudlet...")
     public String cloudGETReqReceived();
 
-    @En("Cloudlet GET Request receiving on the Asset Cloudlet...")
-    public String cloudGETReqReceiving();
-
-    @En("Cloudlet PUT Request received on the Asset Cloudlet")
-    public String cloudPUTReqReceived();
-
-    @En("Cloudlet PUT Request receiving on the Asset Cloudlet...")
-    public String cloudPUTReqReceiving();
-
-    @En("Connection to the Modbus Device failed")
-    public String connectionException();
+    @En("Cloudlet EXEC Request received on the Asset Cloudlet...")
+    public String cloudEXECReqReceived();
 
     @En("Deactivating Asset Cloudlet...")
     public String deactivating();
@@ -94,28 +79,22 @@ public interface AssetCloudletMessages {
     @En("Deactivating Asset Cloudlet...Done")
     public String deactivatingDone();
 
-    @En("error")
-    public String errorMessage();
-
-    @En("flag")
-    public String flag();
-
     @En("Response Payload cannot be null")
     public String respPayloadNonNull();
 
-    @En("timestamp")
-    public String timestamp();
-
     @En("User Provided Type cannot be null")
     public String typeNonNull();
-
-    @En("value")
-    public String value();
 
     @En("User Provided Value cannot be null")
     public String valueNonNull();
 
     @En("The provided value type is erroneous")
     public String valueTypeConversionError();
+
+    @En("Unknown error")
+    public String unknownError();
+
+    @En("Asset not found")
+    public String assetNotFound();
 
 }

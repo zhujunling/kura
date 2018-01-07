@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2016 Eurotech and/or its affiliates
+ * Copyright (c) 2011, 2017 Eurotech and/or its affiliates
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -52,8 +52,8 @@ public class denali implements EntryPoint {
 
     private final EntryClassUi binder = GWT.create(EntryClassUi.class);
 
-    private boolean isDevelopMode = false;
-    private boolean m_connected;
+    private boolean isDevelopMode;
+    private boolean connected;
 
     /**
      * Note, we defer all application initialization code to
@@ -106,96 +106,41 @@ public class denali implements EntryPoint {
                             if (pairs != null) {
                                 for (GwtGroupedNVPair pair : pairs) {
                                     String name = pair.getName();
-                                    if (name != null && name.equals("kura.have.net.admin")) {
+                                    if ("kura.have.net.admin".equals(name)) {
                                         Boolean value = Boolean.valueOf(pair.getValue());
                                         gwtSession.setNetAdminAvailable(value);
                                     }
-                                    if (name != null && name.equals("kura.version")) {
+                                    if ("kura.version".equals(name)) {
                                         gwtSession.setKuraVersion(pair.getValue());
                                     }
-                                    if (name != null && name.equals("kura.os.version")) {
+                                    if ("kura.os.version".equals(name)) {
                                         gwtSession.setOsVersion(pair.getValue());
                                     }
                                 }
                             }
                         }
 
-                        denali.this.gwtXSRFService.generateSecurityToken(new AsyncCallback<GwtXSRFToken>() {
+                        denali.this.gwtSecurityService.isDebugMode(new AsyncCallback<Boolean>() {
 
                             @Override
-                            public void onFailure(Throwable ex) {
-                                FailureHandler.handle(ex);
+                            public void onFailure(Throwable caught) {
+                                FailureHandler.handle(caught, denali.class.getSimpleName());
+                                denali.this.binder.setFooter(gwtSession);
+                                denali.this.binder.initSystemPanel(gwtSession, denali.this.connected);
+                                denali.this.binder.setSession(gwtSession);
+                                denali.this.binder.init();
                             }
 
                             @Override
-                            public void onSuccess(GwtXSRFToken token) {
-                                denali.this.gwtStatusService.getDeviceConfig(token, gwtSession.isNetAdminAvailable(),
-                                        new AsyncCallback<ArrayList<GwtGroupedNVPair>>() {
-
-                                    @Override
-                                    public void onFailure(Throwable caught) {
-
-                                        FailureHandler.handle(caught);
-                                    }
-
-                                    @Override
-                                    public void onSuccess(ArrayList<GwtGroupedNVPair> pairs) {
-                                        denali.this.m_connected = false;
-                                        int connectionNameIndex = 0;
-                                        for (GwtGroupedNVPair result : pairs) {
-                                            if ("Connection Name".equals(result.getName())
-                                                    && "CloudService".equals(result.getValue())) {
-                                                GwtGroupedNVPair connectionStatus = pairs.get(connectionNameIndex + 1); // done
- // based
- // on
- // the
- // idea
- // that
- // in
- // the
- // pairs
- // data
- // connection
- // name
- // is
- // before
- // connection
- // status
-                                                if ("Connection Status".equals(connectionStatus.getName())
-                                                        && "CONNECTED".equals(connectionStatus.getValue())) {
-                                                    denali.this.m_connected = true;
-                                                    break;
-                                                }
-                                            }
-                                            connectionNameIndex++;
-                                        }
-                                        denali.this.gwtSecurityService.isDebugMode(new AsyncCallback<Boolean>() {
-
-                                            @Override
-                                            public void onFailure(Throwable caught) {
-                                                FailureHandler.handle(caught, denali.class.getSimpleName());
-                                                denali.this.binder.setFooter(gwtSession);
-                                                denali.this.binder.initSystemPanel(gwtSession, denali.this.m_connected);
-                                                denali.this.binder.setSession(gwtSession);
-                                                denali.this.binder.fetchAvailableServices();
-                                                // binder.setDirty(false);
-                                            }
-
-                                            @Override
-                                            public void onSuccess(Boolean result) {
-                                                if (result) {
-                                                    denali.this.isDevelopMode = true;
-                                                    gwtSession.setDevelopMode(true);
-                                                }
-                                                denali.this.binder.setFooter(gwtSession);
-                                                denali.this.binder.initSystemPanel(gwtSession, denali.this.m_connected);
-                                                denali.this.binder.setSession(gwtSession);
-                                                denali.this.binder.fetchAvailableServices();
-                                                // binder.setDirty(false);
-                                            }
-                                        });
-                                    }
-                                });
+                            public void onSuccess(Boolean result) {
+                                if (result) {
+                                    denali.this.isDevelopMode = true;
+                                    gwtSession.setDevelopMode(true);
+                                }
+                                denali.this.binder.setFooter(gwtSession);
+                                denali.this.binder.initSystemPanel(gwtSession, denali.this.connected);
+                                denali.this.binder.setSession(gwtSession);
+                                denali.this.binder.init();
                             }
                         });
                     }
@@ -204,7 +149,7 @@ public class denali implements EntryPoint {
                     public void onFailure(Throwable caught) {
                         FailureHandler.handle(caught, denali.class.getSimpleName());
                         denali.this.binder.setFooter(new GwtSession());
-                        denali.this.binder.initSystemPanel(new GwtSession(), denali.this.m_connected);
+                        denali.this.binder.initSystemPanel(new GwtSession(), denali.this.connected);
                         denali.this.binder.setSession(new GwtSession());
                     }
                 });

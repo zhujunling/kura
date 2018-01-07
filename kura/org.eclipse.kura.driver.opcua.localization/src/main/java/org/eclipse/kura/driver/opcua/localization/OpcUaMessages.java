@@ -21,12 +21,6 @@ import com.github.rodionmoiseev.c10n.annotations.En;
  */
 public interface OpcUaMessages {
 
-    @En("Activating OPC-UA Driver.....")
-    public String activating();
-
-    @En("Activating OPC-UA Driver.....Done")
-    public String activatingDone();
-
     @En("Connecting to OPC-UA...")
     public String connecting();
 
@@ -38,12 +32,6 @@ public interface OpcUaMessages {
 
     @En("Crypto Service cannot be null")
     public String cryptoServiceNonNull();
-
-    @En("Deactivating OPC-UA Driver.....")
-    public String deactivating();
-
-    @En("Deactivating OPC-UA Driver.....Done")
-    public String deactivatingDone();
 
     @En("Disconnecting from OPC-UA...")
     public String disconnecting();
@@ -60,11 +48,17 @@ public interface OpcUaMessages {
     @En("Error while retrieving Node ID")
     public String errorRetrievingNodeId();
 
+    @En("Error while retrieving Node ID type")
+    public String errorRetrievingNodeIdType();
+
     @En("Error while retrieving Node Namespace index")
     public String errorRetrievingNodeNamespace();
 
     @En("Error while retrieving value type")
     public String errorRetrievingValueType();
+
+    @En("Error while retrieving OPC UA variable type")
+    public String errorRetrievingOpcuaType();
 
     @En("Error while converting the retrieved value to the defined typed")
     public String errorValueTypeConversion();
@@ -81,17 +75,11 @@ public interface OpcUaMessages {
     @En("OPC-UA Read Operation Failed")
     public String readFailed();
 
-    @En("Driver Record cannot be null")
+    @En("Channel Record cannot be null")
     public String recordNonNull();
 
-    @En("Driver Record list cannot be null")
+    @En("Channel Record list cannot be null")
     public String recordListNonNull();
-
-    @En("Updating OPC-UA Driver.....")
-    public String updating();
-
-    @En("Updating OPC-UA Driver.....Done")
-    public String updatingDone();
 
     @En("Value cannot be null")
     public String valueNonNull();

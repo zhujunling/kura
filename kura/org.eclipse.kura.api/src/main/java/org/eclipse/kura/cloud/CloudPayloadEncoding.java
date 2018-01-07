@@ -13,11 +13,12 @@ package org.eclipse.kura.cloud;
 
 /**
  * This enum specifies the supported payload encodings.
- *
+ * 
+ * @since 1.2
  */
 public enum CloudPayloadEncoding {
     KURA_PROTOBUF("kura-protobuf"),
-    JSON("json");
+    SIMPLE_JSON("simple-json");
 
     private final String encodingText;
 

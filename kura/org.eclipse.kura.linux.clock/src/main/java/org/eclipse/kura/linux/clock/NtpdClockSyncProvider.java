@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2011, 2016 Eurotech and/or its affiliates
+ * Copyright (c) 2011, 2017 Eurotech and/or its affiliates
  *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
@@ -11,18 +11,20 @@
  *******************************************************************************/
 package org.eclipse.kura.linux.clock;
 
+import java.io.IOException;
 import java.util.Date;
 
 import org.eclipse.kura.KuraErrorCode;
 import org.eclipse.kura.KuraException;
 import org.eclipse.kura.core.util.ProcessUtil;
 import org.eclipse.kura.core.util.SafeProcess;
+import org.eclipse.kura.linux.clock.AbstractNtpClockSyncProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 public class NtpdClockSyncProvider extends AbstractNtpClockSyncProvider {
 
-    private static final Logger s_logger = LoggerFactory.getLogger(NtpdClockSyncProvider.class);
+    private static final Logger logger = LoggerFactory.getLogger(NtpdClockSyncProvider.class);
 
     // ----------------------------------------------------------------
     //
@@ -36,21 +38,21 @@ public class NtpdClockSyncProvider extends AbstractNtpClockSyncProvider {
         SafeProcess proc = null;
         try {
             // Execute a native Linux command to perform the NTP time sync.
-            int ntpTimeout = this.m_ntpTimeout / 1000;
-            proc = ProcessUtil.exec("ntpdate -t " + ntpTimeout + " " + this.m_ntpHost);
+            int ntpTimeout = this.ntpTimeout / 1000;
+            proc = exec("ntpdate -t " + ntpTimeout + " " + this.ntpHost);
             proc.waitFor();
             if (proc.exitValue() == 0) {
-                s_logger.info("System Clock Synchronized with " + this.m_ntpHost);
-                this.m_lastSync = new Date();
+                logger.info("System Clock Synchronized with " + this.ntpHost);
+                this.lastSync = new Date();
 
                 // Call update method with 0 offset to ensure the clock event gets fired and the HW clock
                 // is updated if desired.
-                this.m_listener.onClockUpdate(0);
+                this.listener.onClockUpdate(0);
                 ret = true;
             } else {
-                s_logger.warn(
+                logger.warn(
                         "Error while synchronizing System Clock with NTP host {}. Please verify network connectivity ...",
-                        this.m_ntpHost);
+                        this.ntpHost);
             }
         } catch (Exception e) {
             throw new KuraException(KuraErrorCode.INTERNAL_ERROR, e);
@@ -60,5 +62,9 @@ public class NtpdClockSyncProvider extends AbstractNtpClockSyncProvider {
             }
         }
         return ret;
+    }
+
+    protected SafeProcess exec(String command) throws IOException {
+        return ProcessUtil.exec(command);
     }
 }

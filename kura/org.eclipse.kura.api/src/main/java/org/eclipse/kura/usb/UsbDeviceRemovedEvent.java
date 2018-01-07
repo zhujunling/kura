@@ -13,11 +13,15 @@ package org.eclipse.kura.usb;
 
 import java.util.Map;
 
+import org.osgi.annotation.versioning.ProviderType;
 import org.osgi.service.event.Event;
 
 /**
  * An event raised when a USB device has been removed from the system.
+ * 
+ * @noextend This class is not intended to be subclassed by clients.
  */
+@ProviderType
 public class UsbDeviceRemovedEvent extends Event implements UsbDeviceEvent {
 
     /** Topic of the UsbDeviceRemovedEvent */
@@ -97,5 +101,15 @@ public class UsbDeviceRemovedEvent extends Event implements UsbDeviceEvent {
      */
     public String getUsbDevicePath() {
         return (String) getProperty(USB_EVENT_DEVICE_PATH_PROPERTY);
+    }
+
+    /**
+     * Returns the USB device type.
+     *
+     * @return UsbDeviceType or null if the property is not set
+     * @since 1.4
+     */
+    public UsbDeviceType getUsbDeviceType() {
+        return (UsbDeviceType) getProperty(USB_EVENT_DEVICE_TYPE_PROPERTY);
     }
 }

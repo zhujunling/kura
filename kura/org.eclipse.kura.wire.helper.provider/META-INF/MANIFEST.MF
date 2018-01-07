@@ -2,13 +2,13 @@ Manifest-Version: 1.0
 Bundle-ManifestVersion: 2
 Bundle-Name: Kura Wires Helper Service Provider
 Bundle-SymbolicName: org.eclipse.kura.wire.helper.provider;singleton:=true
-Bundle-Version: 1.0.0.qualifier
+Bundle-Version: 1.0.200.qualifier
 Bundle-Vendor: Eclipse Kura
 Bundle-License: Eclipse Public License v1.0
 Bundle-Category: Kura Wires
 Bundle-RequiredExecutionEnvironment: JavaSE-1.8
 Import-Package: org.eclipse.kura;version="[1.2,2.0)",
- org.eclipse.kura.configuration;version="[1.1,1.2)",
+ org.eclipse.kura.configuration;version="[1.1,2.0)",
  org.eclipse.kura.localization;version="[1.0,2.0)",
  org.eclipse.kura.localization.resources;version="[1.0,2.0)",
  org.eclipse.kura.util.base;version="[1.0,2.0)",

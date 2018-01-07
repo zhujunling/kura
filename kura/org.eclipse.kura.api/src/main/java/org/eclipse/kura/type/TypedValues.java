@@ -13,16 +13,24 @@
  *******************************************************************************/
 package org.eclipse.kura.type;
 
+import java.util.Base64;
+import java.util.Base64.Decoder;
+import java.util.Objects;
+
 import org.eclipse.kura.KuraRuntimeException;
 import org.eclipse.kura.annotation.Nullable;
+import org.osgi.annotation.versioning.ProviderType;
 
 /**
  * The Class TypedValues is an utility class to quickly create different
  * {@link TypedValue}
  * 
- * @noextend This class is not intended to be extended by clients.
+ * @since 1.2
  */
+@ProviderType
 public final class TypedValues {
+
+    private static final Decoder BASE64_DECODER = Base64.getDecoder();
 
     private TypedValues() {
         // Static Factory Methods container. No need to instantiate.
@@ -53,14 +61,14 @@ public final class TypedValues {
     }
 
     /**
-     * Creates new byte value.
+     * Creates new float value.
      *
      * @param value
-     *            the primitive byte value
-     * @return the byte value represented as {@link TypedValue}
+     *            the primitive float value
+     * @return the float value represented as {@link TypedValue}
      */
-    public static ByteValue newByteValue(final byte value) {
-        return new ByteValue(value);
+    public static FloatValue newFloatValue(final float value) {
+        return new FloatValue(value);
     }
 
     /**
@@ -97,17 +105,6 @@ public final class TypedValues {
     }
 
     /**
-     * Creates new short value.
-     *
-     * @param value
-     *            the primitive short value
-     * @return the short value represented as {@link TypedValue}
-     */
-    public static ShortValue newShortValue(final short value) {
-        return new ShortValue(value);
-    }
-
-    /**
      * Creates new string value.
      *
      * @param value
@@ -132,20 +129,53 @@ public final class TypedValues {
             return newBooleanValue((Boolean) value);
         } else if (value instanceof byte[]) {
             return newByteArrayValue((byte[]) value);
-        } else if (value instanceof Byte) {
-            return newByteValue((Byte) value);
+        } else if (value instanceof Float) {
+            return newFloatValue((Float) value);
         } else if (value instanceof Double) {
             return newDoubleValue((Double) value);
         } else if (value instanceof Integer) {
             return newIntegerValue((Integer) value);
         } else if (value instanceof Long) {
             return newLongValue((Long) value);
-        } else if (value instanceof Short) {
-            return newShortValue((Short) value);
         } else if (value instanceof String) {
             return newStringValue((String) value);
         }
 
         throw new IllegalArgumentException("Cannot convert to TypedValue");
+    }
+
+    /**
+     * Parses a TypedValue of given type from a String.
+     * 
+     * @param value
+     *            the String to be parsed into a {@link TypedValue}
+     * @param type
+     *            the {@link DataType} of the returned {@link TypedValue}
+     * @return a {@link TypedValue} that represents the conversion of {@code value}
+     * @throws IllegalArgumentException
+     *             if {@code value} cannot be represented as {@link TypedValue}
+     */
+    public static TypedValue<?> parseTypedValue(final DataType type, final String value) {
+        Objects.requireNonNull(value, "value cannot be null");
+        try {
+            switch (type) {
+            case BOOLEAN:
+                return newBooleanValue(Boolean.parseBoolean(value));
+            case BYTE_ARRAY:
+                return TypedValues.newByteArrayValue(BASE64_DECODER.decode(value));
+            case DOUBLE:
+                return newDoubleValue(Double.parseDouble(value));
+            case FLOAT:
+                return newFloatValue(Float.parseFloat(value));
+            case INTEGER:
+                return newIntegerValue(Integer.parseInt(value));
+            case LONG:
+                return newLongValue(Long.parseLong(value));
+            case STRING:
+                return newStringValue(value);
+            }
+        } catch (Exception e) {
+        }
+        throw new IllegalArgumentException(value + " cannot be converted into a TypedValue of type " + type);
     }
 }
